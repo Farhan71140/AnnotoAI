@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnnotoAI — Table View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#03040a;--s1:#080912;--s2:#0d0f1e;--s3:#12152a;
+  --border:#1c2040;--border2:#252850;
+  --blue:#4f6ef7;--blue2:#7b93ff;--cyan:#00e5cc;
+  --pink:#f25aad;--amber:#f5a623;--green:#22d98a;
+  --text:#e4e8ff;--muted:#4a506e;--muted2:#6b738f;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 15% 0%,rgba(79,110,247,0.08) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 85% 100%,rgba(0,229,204,0.06) 0%,transparent 60%);pointer-events:none;z-index:0;}
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(79,110,247,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,110,247,0.03) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px;}
+header{padding:32px 0 24px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border);margin-bottom:32px;}
+.logo-mark{width:48px;height:48px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#fff;box-shadow:0 0 30px rgba(79,110,247,0.35);flex-shrink:0;}
+.brand h1{font-size:22px;font-weight:800;letter-spacing:-0.5px;background:linear-gradient(90deg,var(--text),var(--blue2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.brand p{font-size:12px;color:var(--muted2);margin-top:3px;}
+.badge{margin-left:auto;background:rgba(0,229,204,0.08);border:1px solid rgba(0,229,204,0.2);color:var(--cyan);padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted2);text-decoration:none;margin-bottom:24px;font-weight:600;}
+.back-link:hover{color:var(--cyan);}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:20px;animation:fadeUp 0.35s ease both;}
+.card-head{padding:16px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.card-head-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.card-head-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);}
+.card-body{padding:22px;}
+.upload-zone{border:2px dashed var(--border2);border-radius:14px;padding:52px 24px;text-align:center;cursor:pointer;transition:all 0.25s;position:relative;background:var(--s2);}
+.upload-zone:hover{border-color:var(--blue);background:rgba(79,110,247,0.06);transform:translateY(-2px);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:10;}
+.upload-icon{font-size:40px;margin-bottom:14px;}
+.upload-title{font-size:16px;font-weight:700;margin-bottom:6px;}
+.upload-sub{font-size:12px;color:var(--muted2);}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 20px;text-align:center;}
+.stat-num{font-size:26px;font-weight:800;line-height:1;}
+.stat-label{font-size:11px;color:var(--muted2);margin-top:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;}
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.search-box{flex:1;min-width:220px;background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;padding:10px 16px;outline:none;transition:border-color 0.2s;}
+.search-box:focus{border-color:var(--blue);}
+.search-box::placeholder{color:var(--muted);}
+.filter-btn{background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;padding:10px 16px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.filter-btn:hover,.filter-btn.active{border-color:var(--blue);color:var(--blue2);background:rgba(79,110,247,0.08);}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--s3);}
+th{padding:12px 16px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;font-weight:700;}
+td{padding:11px 16px;border-bottom:1px solid rgba(255,255,255,0.025);vertical-align:middle;}
+tr:hover td{background:rgba(79,110,247,0.04);}
+tr.selected td{background:rgba(79,110,247,0.1)!important;}
+.col-n{color:var(--muted);font-size:11px;font-family:'Space Mono',monospace;}
+.col-orig{color:var(--muted2);}
+.col-ann{color:var(--text);font-weight:700;}
+.col-time{color:var(--cyan);font-size:11px;font-family:'Space Mono',monospace;font-weight:700;white-space:nowrap;}
+.col-rule{color:var(--muted2);font-size:11px;}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;margin-left:4px;font-family:'Space Mono',monospace;}
+.tag-sil{background:rgba(79,110,247,0.15);color:var(--blue2);}
+.tag-mb{background:rgba(255,82,105,0.15);color:#ff8096;}
+.tag-fil{background:rgba(34,217,138,0.15);color:var(--green);}
+.tag-noi{background:rgba(245,166,35,0.15);color:var(--amber);}
+.tag-ln{background:rgba(242,90,173,0.15);color:var(--pink);}
+.tag-dev{background:rgba(0,229,204,0.12);color:var(--cyan);}
+.btn{border:none;border-radius:10px;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:700;transition:all 0.2s;display:inline-flex;align-items:center;gap:7px;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),#7b5cf7);color:#fff;font-size:13px;padding:11px 22px;box-shadow:0 4px 16px rgba(79,110,247,0.3);}
+.btn-primary:hover{transform:translateY(-2px);}
+.btn-secondary{background:var(--s2);border:1px solid var(--border2);color:var(--muted2);font-size:12px;padding:11px 18px;}
+.btn-secondary:hover{border-color:var(--cyan);color:var(--cyan);}
+.copy-btn{background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--muted2);font-family:'Space Mono',monospace;font-size:10px;padding:4px 10px;cursor:pointer;transition:all 0.15s;}
+.copy-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.transcript-box{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:18px;font-size:14px;line-height:2.2;display:none;margin-bottom:20px;}
+.transcript-box.show{display:block;}
+.ht-sil{color:var(--blue2);font-weight:700;}
+.ht-mb{color:#ff8096;font-weight:700;}
+.ht-fil{color:var(--green);font-weight:700;}
+.ht-noi{color:var(--amber);font-weight:700;}
+.ht-ln{color:var(--pink);font-weight:700;}
+.info{background:rgba(79,110,247,0.06);border:1px solid rgba(79,110,247,0.15);border-radius:12px;padding:14px 18px;font-size:12px;color:var(--muted2);line-height:1.9;margin-bottom:20px;}
+.info strong{color:var(--text);}
+.info code{background:var(--s3);padding:2px 8px;border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;color:var(--cyan);}
+.empty{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty-icon{font-size:40px;margin-bottom:12px;}
+.bottom-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;}
+footer{text-align:center;padding:32px 0 48px;border-top:1px solid var(--border);margin-top:24px;}
+.footer-brand{font-size:15px;font-weight:800;background:linear-gradient(90deg,var(--blue2),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;}
+.footer-line{font-size:11px;color:var(--muted2);line-height:1.8;}
+.footer-credit{margin-top:16px;display:inline-flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--border);border-radius:30px;padding:8px 20px;}
+.footer-credit span{font-size:11px;color:var(--muted2);}
+.footer-credit strong{font-size:13px;font-weight:800;background:linear-gradient(90deg,var(--blue),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="wrap">
+
+  <header>
+    <div class="logo-mark">A</div>
+    <div class="brand">
+      <h1>AnnotoAI &mdash; Table View</h1>
+      <p>Word-by-word annotation table for Annotic</p>
+    </div>
+    <div class="badge">v2.0 &nbsp;&#183;&nbsp; Windows</div>
+  </header>
+
+  <a class="back-link" href="annotation_tool.html">&#8592; Back to Annotation Tool</a>
+
+  <div class="info">
+    <strong>How to use:</strong> After running the annotation tool, click <code>Download JSON</code> then upload that file here.<br>
+    The table shows exactly what to type in each Annotic text box with timestamps in <strong>HH : MM : SS . MS</strong> format.
+  </div>
+
+  <div class="card" id="uploadCard">
+    <div class="card-head">
+      <div class="card-head-dot" style="background:var(--amber)"></div>
+      <span class="card-head-title">Upload Annotation JSON</span>
+    </div>
+    <div class="card-body">
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" accept=".json" onchange="loadFile(event)">
+        <div class="upload-icon">&#128194;</div>
+        <div class="upload-title">Click to upload annotation_output.json</div>
+        <div class="upload-sub">Or drag and drop the file here</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid" id="statsBar" style="display:none;">
+    <div class="stat-card"><div class="stat-num" id="sTotal" style="color:var(--blue2)">0</div><div class="stat-label">Total Words</div></div>
+    <div class="stat-card"><div class="stat-num" id="sDur" style="color:var(--cyan);font-size:16px;">&#8212;</div><div class="stat-label">Audio Duration</div></div>
+    <div class="stat-card"><div class="stat-num" id="sTagged" style="color:var(--amber)">0</div><div class="stat-label">Tagged Words</div></div>
+    <div class="stat-card"><div class="stat-num" id="sDeva" style="color:var(--pink)">0</div><div class="stat-label">Devanagari</div></div>
+  </div>
+
+  <div class="transcript-box" id="transcriptBox">
+    <div style="font-size:11px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:12px;">Full Annotated Transcript</div>
+    <div id="transcriptText"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-dot" style="background:var(--cyan)"></div>
+      <span class="card-head-title">Word-by-Word Annotation Table</span>
+    </div>
+    <div class="card-body">
+      <div class="toolbar" id="toolbar" style="display:none;">
+        <input class="search-box" id="searchInput" placeholder="Search words..." oninput="doFilter()">
+        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setFilter('tagged',this)">Tagged Only</button>
+        <button class="filter-btn" onclick="setFilter('deva',this)">Devanagari</button>
+        <button class="filter-btn" onclick="toggleTranscript()">&#128221; Transcript</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Original Word</th>
+              <th>Type This in Annotic</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Rule Applied</th>
+              <th>Copy</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="7"><div class="empty"><div class="empty-icon">&#128194;</div><p>Upload annotation_output.json to see the table</p></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="bottom-bar" id="bottomBar" style="display:none;">
+        <button class="btn btn-primary" onclick="downloadPDF()">&#11015; &nbsp;Download PDF</button>
+        <button class="btn btn-secondary" onclick="exportCSV()">&#11015; &nbsp;Export CSV</button>
+        <button class="btn btn-secondary" onclick="copyAll()">&#128203; &nbsp;Copy All Words</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-brand">AnnotoAI</div>
+    <div class="footer-line">AI-Powered Speech Annotation &nbsp;&#183;&nbsp; Spoken English Assessment &nbsp;&#183;&nbsp; Jan 2026 Guidelines</div>
+    <div style="margin-top:20px;">
+      <div class="footer-credit">
+        <span>Designed &amp; Developed by</span>
+        <strong>Md Farhan Uddin</strong>
+      </div>
+    </div>
+  </footer>
+
+</div>
+<script>
+var allData = [];
+var currentFilter = 'all';
+
+function loadFile(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try { processJSON(JSON.parse(ev.target.result)); }
+    catch(err) { alert('Error! Make sure you upload annotation_output.json'); }
+  };
+  reader.readAsText(file);
+}
+
+function processJSON(json) {
+  var annotations = [];
+  var transcript = '';
+  if (json.annotations && Array.isArray(json.annotations)) {
+    annotations = json.annotations;
+    transcript  = json.transcript || '';
+  } else if (json.result && json.result.annotations) {
+    annotations = json.result.annotations;
+    transcript  = json.result.transcript || '';
+  } else if (json.annotic_json && json.annotic_json.annotations) {
+    annotations = json.annotic_json.annotations.map(function(a){
+      return {original:a.Transcription?a.Transcription[0]:'',annotated:a.Transcription?a.Transcription[0]:'',start:a.start||'',end:a.end||'',rule:'annotic json'};
+    });
+    transcript = json.transcript || '';
+  }
+  if (!annotations.length) { alert('No annotations found! Please download annotation_output.json after clicking Apply All Annotation Rules.'); return; }
+  allData = annotations;
+  document.getElementById('uploadCard').style.display = 'none';
+  if (transcript) {
+    document.getElementById('transcriptBox').classList.add('show');
+    document.getElementById('transcriptText').innerHTML = hlTags(esc(transcript));
+  }
+  var tagged = annotations.filter(function(a){ return hasTag(a.annotated); }).length;
+  var deva   = annotations.filter(function(a){ return isDeva(a.annotated); }).length;
+  var last   = annotations[annotations.length-1];
+  document.getElementById('sTotal').textContent  = annotations.length;
+  document.getElementById('sDur').textContent    = last ? fmtTime(last.end) : '\u2014';
+  document.getElementById('sTagged').textContent = tagged;
+  document.getElementById('sDeva').textContent   = deva;
+  document.getElementById('statsBar').style.display  = 'grid';
+  document.getElementById('toolbar').style.display   = 'flex';
+  document.getElementById('bottomBar').style.display = 'flex';
+  renderTable(annotations);
+}
+
+function renderTable(data) {
+  var tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">&#128269;</div><p>No results found</p></div></td></tr>';
+    return;
+  }
+  for (var i = 0; i < data.length; i++) {
+    var item = data[i];
+    var tr   = document.createElement('tr');
+    (function(row){ row.onclick = function(){
+      document.querySelectorAll('tr.selected').forEach(function(r){ r.classList.remove('selected'); });
+      row.classList.add('selected');
+    }; })(tr);
+    var ann = item.annotated || item.original || '';
+    tr.innerHTML = '<td class="col-n">'+(i+1)+'</td>'
+      + '<td class="col-orig">'+esc(item.original||'')+'</td>'
+      + '<td class="col-ann">'+renderAnnot(ann)+'</td>'
+      + '<td class="col-time">'+fmtTime(item.start||'')+'</td>'
+      + '<td class="col-time">'+fmtTime(item.end||'')+'</td>'
+      + '<td class="col-rule">'+esc(item.rule||'')+'</td>'
+      + '<td><button class="copy-btn" onclick="copyWord(event,this,\''+esc(ann).replace(/'/g,"\\'")+'\')">Copy</button></td>';
+    tbody.appendChild(tr);
+  }
+}
+
+function fmtTime(t) {
+  if (!t) return '--:--:--.---';
+  try {
+    var p = t.trim().split(':');
+    var hh='00',mm='00',ss='00',ms='000';
+    if (p.length===3) {
+      hh=p[0].padStart(2,'0'); mm=p[1].padStart(2,'0');
+      var s=p[2].split('.'); ss=s[0].padStart(2,'0'); ms=s[1]?s[1].padEnd(3,'0').slice(0,3):'000';
+    } else if (p.length===2) {
+      mm=p[0].padStart(2,'0');
+      var s2=p[1].split('.'); ss=s2[0].padStart(2,'0'); ms=s2[1]?s2[1].padEnd(3,'0').slice(0,3):'000';
+    }
+    return hh+' : '+mm+' : '+ss+' . '+ms;
+  } catch(e){ return t; }
+}
+
+function renderAnnot(text) {
+  if (!text) return '';
+  var html = esc(text), tags = [];
+  if (text.indexOf('<SIL>')>-1)   tags.push('<span class="tag tag-sil">SIL</span>');
+  if (text.indexOf('<MB>')>-1)    tags.push('<span class="tag tag-mb">MB</span>');
+  if (text.indexOf('<FIL>')>-1)   tags.push('<span class="tag tag-fil">FIL</span>');
+  if (text.indexOf('<NOISE>')>-1) tags.push('<span class="tag tag-noi">NOISE</span>');
+  if (text.indexOf('<LN>')>-1)    tags.push('<span class="tag tag-ln">LN</span>');
+  if (isDeva(text))               tags.push('<span class="tag tag-dev">DEV</span>');
+  return html + (tags.length ? ' '+tags.join('') : '');
+}
+
+function hlTags(h) {
+  return h.replace(/(&lt;SIL&gt;.*?&lt;\/SIL&gt;)/gs,'<span class="ht-sil">$1</span>')
+          .replace(/(&lt;MB&gt;.*?&lt;\/MB&gt;)/gs,'<span class="ht-mb">$1</span>')
+          .replace(/(&lt;FIL&gt;.*?&lt;\/FIL&gt;)/gs,'<span class="ht-fil">$1</span>')
+          .replace(/(&lt;NOISE&gt;.*?&lt;\/NOISE&gt;)/gs,'<span class="ht-noi">$1</span>')
+          .replace(/(&lt;LN&gt;.*?&lt;\/LN&gt;)/gs,'<span class="ht-ln">$1</span>');
+}
+
+function hasTag(t){ return t&&['<SIL>','<MB>','<FIL>','<NOISE>','<LN>'].some(function(x){return t.indexOf(x)>-1;}); }
+function isDeva(t){ return t&&/[\u0900-\u097F]/.test(t); }
+
+function doFilter() {
+  var q = document.getElementById('searchInput').value.toLowerCase();
+  var f = allData.slice();
+  if (currentFilter==='tagged') f=f.filter(function(a){return hasTag(a.annotated);});
+  else if (currentFilter==='deva') f=f.filter(function(a){return isDeva(a.annotated);});
+  if (q) f=f.filter(function(a){return (a.original||'').toLowerCase().indexOf(q)>-1||(a.annotated||'').toLowerCase().indexOf(q)>-1;});
+  renderTable(f);
+}
+
+function setFilter(type,btn){
+  currentFilter=type;
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  doFilter();
+}
+
+function copyWord(e,btn,text){
+  e.stopPropagation();
+  navigator.clipboard.writeText(text).then(function(){
+    btn.textContent='✓'; setTimeout(function(){btn.textContent='Copy';},1500);
+  });
+}
+
+function copyAll(){
+  navigator.clipboard.writeText(allData.map(function(a){return a.annotated||'';}).join('\n'))
+    .then(function(){alert('All annotated words copied!');});
+}
+
+function toggleTranscript(){ document.getElementById('transcriptBox').classList.toggle('show'); }
+
+function esc(t){ return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* Download PDF - same structure as test_150rows.html which worked perfectly */
+function downloadPDF(){
+  if(!allData.length){alert('No data to export!');return;}
+  var dateStr = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  var total   = allData.length;
+  var tagged  = allData.filter(function(a){return hasTag(a.annotated);}).length;
+  var deva    = allData.filter(function(a){return isDeva(a.annotated);}).length;
+  var dur     = allData[allData.length-1]?fmtTime(allData[allData.length-1].end):'-';
+
+  function se(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  var rows='';
+  for(var i=0;i<allData.length;i++){
+    var d=allData[i], bg=i%2===0?'#ffffff':'#f5f7ff';
+    var raw=d.annotated||'', tag='';
+    if(raw.indexOf('<SIL>')>-1)   tag+='<span style="background:#dde4ff;color:#2244cc;font-size:7px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">SIL</span>';
+    if(raw.indexOf('<MB>')>-1)    tag+='<span style="background:#ffe0e0;color:#cc2222;font-size:7px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">MB</span>';
+    if(raw.indexOf('<FIL>')>-1)   tag+='<span style="background:#dcffe8;color:#1a7a40;font-size:7px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">FIL</span>';
+    if(raw.indexOf('<NOISE>')>-1) tag+='<span style="background:#fff3cc;color:#7a5500;font-size:7px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">NOISE</span>';
+    if(raw.indexOf('<LN>')>-1)    tag+='<span style="background:#f5ddff;color:#6600aa;font-size:7px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">LN</span>';
+    if(isDeva(raw)) tag+='<span style="background:#e8ffe8;color:#006600;font-size:7px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:3px;">DEV</span>';
+    rows+='<tr>'
+      +'<td style="text-align:center;color:#bbb;font-size:8.5px;padding:5px 6px;border:1px solid #e0e0e0;background:'+bg+';">'+(i+1)+'</td>'
+      +'<td style="color:#555;padding:5px 8px;border:1px solid #e0e0e0;background:'+bg+';font-size:9px;">'+se(d.original||'')+'</td>'
+      +'<td style="color:#111;padding:5px 8px;border:1px solid #e0e0e0;background:'+bg+';font-size:9px;font-weight:600;font-variant-ligatures:none;-webkit-font-variant-ligatures:none;">'+se(raw)+tag+'</td>'
+      +'<td style="color:#0a6050;padding:5px 8px;border:1px solid #e0e0e0;background:'+bg+';font-size:8px;font-family:Consolas,Courier New,monospace;text-align:center;letter-spacing:0.3px;">'+fmtTime(d.start||'')+'</td>'
+      +'<td style="color:#0a6050;padding:5px 8px;border:1px solid #e0e0e0;background:'+bg+';font-size:8px;font-family:Consolas,Courier New,monospace;text-align:center;letter-spacing:0.3px;">'+fmtTime(d.end||'')+'</td>'
+      +'<td style="color:#888;padding:5px 8px;border:1px solid #e0e0e0;background:'+bg+';font-size:8px;font-style:italic;">'+se(d.rule||'')+'</td>'
+      +'</tr>\n';
+  }
+
+  var css='@page{size:A4 landscape;margin:10mm;}'
+    +'*{margin:0;padding:0;box-sizing:border-box;}'
+    +'body{font-family:Arial,Helvetica,sans-serif;font-size:10px;background:#fff;color:#222;}'
+    +'.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a2e;padding-bottom:8px;margin-bottom:8px;}'
+    +'.hdr h1{font-size:16px;font-weight:800;color:#1a1a2e;}'
+    +'.hdr p{font-size:9px;color:#666;margin-top:3px;}'
+    +'.hdr-r{font-size:9px;color:#555;text-align:right;line-height:1.9;}'
+    +'.stats{display:flex;gap:24px;background:#eef0ff;border:1px solid #c8d0ff;border-radius:5px;padding:6px 14px;margin-bottom:8px;}'
+    +'.stat{font-size:9px;color:#333;}'
+    +'.stat b{font-size:13px;color:#1a1a2e;margin-right:3px;font-weight:800;}'
+    +'table{width:100%;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;table-layout:fixed;}'
+    +'thead{display:table-header-group;}'
+    +'tr{page-break-inside:avoid;break-inside:avoid;}'
+    +'th{background:#e0e4ff;color:#222;font-size:8px;font-weight:700;padding:6px 8px;border:1px solid #bbb;text-transform:uppercase;letter-spacing:0.3px;text-align:left;}'
+    +'th:first-child{text-align:center;}'
+    +'.ftr{position:fixed;bottom:0;left:0;right:0;height:12mm;background:#fff;border-top:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;padding:0 10mm;font-size:7.5px;color:#aaa;}'
+    +'.ftr b{color:#4466ee;}';
+
+  var body='<div class="hdr">'
+    +'<div><h1>AnnotoAI \u2014 Annotation Report</h1>'
+    +'<p>DesicrewAI Spoken English Assessment &middot; Jan 2026 Guidelines</p></div>'
+    +'<div class="hdr-r"><div>Date: '+dateStr+'</div><div>Total Words: '+total+'</div></div>'
+    +'</div>'
+    +'<div class="stats">'
+    +'<div class="stat"><b>'+total+'</b>&nbsp;Total Words</div>'
+    +'<div class="stat"><b>'+tagged+'</b>&nbsp;Tagged</div>'
+    +'<div class="stat"><b>'+deva+'</b>&nbsp;Devanagari</div>'
+    +'<div class="stat"><b>'+dur+'</b>&nbsp;Duration</div>'
+    +'</div>'
+    +'<table>'
+    +'<colgroup><col style="width:4%"><col style="width:15%"><col style="width:23%"><col style="width:20%"><col style="width:20%"><col style="width:18%"></colgroup>'
+    +'<thead><tr>'
+    +'<th>#</th><th>Original Word</th><th>Type This in Annotic</th>'
+    +'<th style="text-align:center;">Start Time</th>'
+    +'<th style="text-align:center;">End Time</th>'
+    +'<th>Rule Applied</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody>'
+    +'</table>'
+    +'<div style="height:14mm;"></div>'
+    +'<div class="ftr">'
+    +'<span>AnnotoAI &middot; DesicrewAI Spoken English Assessment &middot; Jan 2026 Guidelines</span>'
+    +'<b>Designed &amp; Developed by Md Farhan Uddin</b>'
+    +'</div>';
+
+  var fullHtml='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+    +'<title>AnnotoAI Annotation Report</title>'
+    +'<style>'+css+'</style></head><body>'+body
+    +'<'+'script>window.onload=function(){window.print();}<'+'/scri'+'pt>'
+    +'</body></html>';
+
+  var win=window.open('','_blank','width=1200,height=800');
+  win.document.open();
+  win.document.write(fullHtml);
+  win.document.close();
+}
+
+function exportCSV(){
+  var rows=[['#','Original Word','Type This in Annotic','Start Time','End Time','Rule']];
+  allData.forEach(function(a,i){rows.push([i+1,a.original||'',a.annotated||'',fmtTime(a.start),fmtTime(a.end),a.rule||'']);});
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='annotation_table.csv';
+  a.click();
+}
+
+/* Drag and drop */
+var zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',function(e){e.preventDefault();zone.style.borderColor='#4f6ef7';});
+zone.addEventListener('dragleave',function(){zone.style.borderColor='';});
+zone.addEventListener('drop',function(e){
+  e.preventDefault();zone.style.borderColor='';
+  var file=e.dataTransfer.files[0];
+  if(file){var r=new FileReader();r.onload=function(ev){try{processJSON(JSON.parse(ev.target.result));}catch(err){alert('Invalid JSON!');}};r.readAsText(file);}
+});
+</script>
+</body>
+</html>
