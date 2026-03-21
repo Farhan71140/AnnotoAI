@@ -1,0 +1,13 @@
+# API Keys — never push to GitHub
+config.py
+
+# Whisper output (temporary file)
+transcript_output.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db
