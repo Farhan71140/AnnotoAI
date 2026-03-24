@@ -1,6 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/", "destination": "/annotation_tool.html" },
-    { "source": "/view", "destination": "/view_annotations.html" }
-  ]
-}

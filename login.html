@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnnotoAI — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#03040a;--s1:#080912;--s2:#0d0f1e;--s3:#12152a;
+  --border:#1c2040;--blue:#4f6ef7;--blue2:#7b93ff;--cyan:#00e5cc;
+  --pink:#f25aad;--green:#22d98a;--red:#ff5269;
+  --text:#e4e8ff;--muted:#4a506e;--muted2:#6b738f;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%,rgba(79,110,247,0.12) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 60% at 80% 80%,rgba(0,229,204,0.08) 0%,transparent 60%);
+  pointer-events:none;
+}
+.grid{
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(79,110,247,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(79,110,247,0.03) 1px,transparent 1px);
+  background-size:60px 60px;pointer-events:none;
+}
+
+.box{
+  position:relative;z-index:1;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:24px;padding:48px 40px;width:100%;max-width:420px;
+  box-shadow:0 32px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(79,110,247,0.1);
+  animation:fadeIn 0.5s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
+
+.logo{display:flex;align-items:center;gap:14px;margin-bottom:36px;justify-content:center;}
+.logo-mark{
+  width:52px;height:52px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  border-radius:14px;display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:24px;color:#fff;
+  box-shadow:0 0 30px rgba(79,110,247,0.4);
+}
+.logo-text h1{
+  font-size:22px;font-weight:800;
+  background:linear-gradient(90deg,var(--text),var(--blue2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.logo-text p{font-size:11px;color:var(--muted2);margin-top:2px;}
+
+.welcome{text-align:center;margin-bottom:32px;}
+.welcome h2{font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.welcome p{font-size:13px;color:var(--muted2);}
+
+.field{margin-bottom:18px;}
+label{
+  display:block;font-size:11px;font-weight:700;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;
+}
+input{
+  width:100%;background:var(--s2);border:1px solid var(--border);
+  border-radius:12px;color:var(--text);font-family:'Outfit',sans-serif;
+  font-size:14px;padding:13px 16px;outline:none;transition:all 0.2s;
+}
+input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(79,110,247,0.12);}
+input::placeholder{color:var(--muted);}
+
+.pw-wrap{position:relative;}
+.pw-wrap input{padding-right:48px;}
+.pw-toggle{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;
+  color:var(--muted2);font-size:16px;padding:0;line-height:1;
+}
+
+.btn-login{
+  width:100%;margin-top:8px;
+  background:linear-gradient(135deg,var(--blue),#7b5cf7);
+  border:none;border-radius:12px;color:#fff;
+  font-family:'Outfit',sans-serif;font-weight:700;font-size:15px;
+  padding:14px;cursor:pointer;transition:all 0.2s;
+  box-shadow:0 4px 20px rgba(79,110,247,0.35);letter-spacing:0.3px;
+}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(79,110,247,0.5);}
+.btn-login:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+
+.spin{
+  display:inline-block;width:16px;height:16px;
+  border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;
+  border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.err{
+  background:rgba(255,82,105,0.08);border:1px solid rgba(255,82,105,0.2);
+  color:#ff8096;padding:12px 16px;border-radius:10px;
+  font-size:13px;margin-top:14px;display:none;text-align:center;line-height:1.5;
+}
+.err.show{display:block;}
+
+.divider{border:none;border-top:1px solid var(--border);margin:28px 0;}
+
+.footer-note{text-align:center;font-size:11px;color:var(--muted);line-height:1.7;}
+.footer-credit{
+  margin-top:20px;text-align:center;font-size:11px;color:var(--muted);
+}
+.footer-credit strong{
+  background:linear-gradient(90deg,var(--blue),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;
+}
+</style>
+</head>
+<body>
+<div class="grid"></div>
+
+<div class="box">
+  <div class="logo">
+    <div class="logo-mark">A</div>
+    <div class="logo-text">
+      <h1>AnnotoAI</h1>
+      <p>Speech Annotation Platform</p>
+    </div>
+  </div>
+
+  <div class="welcome">
+    <h2>Welcome back</h2>
+    <p>Sign in to access the annotation tool</p>
+  </div>
+
+  <div class="field">
+    <label>Username</label>
+    <input type="text" id="username" placeholder="Enter your username" autocomplete="username">
+  </div>
+
+  <div class="field">
+    <label>Password</label>
+    <div class="pw-wrap">
+      <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
+      <button class="pw-toggle" type="button" id="pwToggle" onclick="togglePw()">👁</button>
+    </div>
+  </div>
+
+  <button class="btn-login" id="loginBtn" onclick="doLogin()">Sign In</button>
+  <div class="err" id="errMsg"></div>
+
+  <hr class="divider">
+
+  <div class="footer-note">
+    Don't have an account? Contact your administrator<br>to get access to AnnotoAI.
+  </div>
+  <div class="footer-credit">
+    Designed &amp; Developed by <strong>Md Farhan Uddin</strong>
+  </div>
+</div>
+
+<script>
+// ── On load: check for existing valid session ─────────────────────────────────
+// KEY FIX: only auto-redirect if we did NOT just get sent back here by the server.
+// We detect a redirect loop by checking a sessionStorage flag.
+(function checkExistingSession() {
+  // If the server just redirected us TO login (e.g. invalid token on /admin),
+  // the server already cleared things — don't auto-redirect back.
+  const justRedirected = sessionStorage.getItem('annoto_redirected_to_login');
+  if (justRedirected) {
+    sessionStorage.removeItem('annoto_redirected_to_login');
+    localStorage.clear(); // clear stale token that caused the redirect
+    return;               // show the login form fresh, no auto-redirect
+  }
+
+  const token = localStorage.getItem('annoto_token');
+  if (!token) return; // no token → show login form normally
+
+  fetch('/verify-token', {
+    method:  'POST',
+    headers: {'Content-Type': 'application/json'},
+    body:    JSON.stringify({token})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.valid) {
+      redirectByRole(data.role);
+    } else {
+      localStorage.clear();
+    }
+  })
+  .catch(() => {
+    // Server not reachable — show login form, do NOT clear token
+  });
+})();
+
+function redirectByRole(role) {
+  if (role === 'admin') {
+    window.location.replace('/admin');
+  } else {
+    window.location.replace('/tool');
+  }
+}
+
+// ── Enter key support ─────────────────────────────────────────────────────────
+document.getElementById('username').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('password').focus();
+});
+document.getElementById('password').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
+
+function togglePw() {
+  const input = document.getElementById('password');
+  const btn   = document.getElementById('pwToggle');
+  if (input.type === 'password') {
+    input.type = 'text'; btn.textContent = '🙈';
+  } else {
+    input.type = 'password'; btn.textContent = '👁';
+  }
+}
+
+// ── Main login function ───────────────────────────────────────────────────────
+async function doLogin() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl    = document.getElementById('errMsg');
+  const btn      = document.getElementById('loginBtn');
+
+  if (!username) {
+    showErr('Please enter your username.');
+    document.getElementById('username').focus();
+    return;
+  }
+  if (!password) {
+    showErr('Please enter your password.');
+    document.getElementById('password').focus();
+    return;
+  }
+
+  errEl.classList.remove('show');
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="spin"></span>Signing in...';
+
+  try {
+    const resp = await fetch('/login', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({username, password})
+    });
+
+    if (!resp.ok) {
+      throw new Error(`Server returned HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+
+    if (data.error) {
+      showErr(data.error);
+      return;
+    }
+
+    if (!data.token) {
+      showErr('Login failed — no token received. Check server console.');
+      return;
+    }
+
+    // SUCCESS — save session data
+    localStorage.setItem('annoto_token', data.token);
+    localStorage.setItem('annoto_name',  data.name  || username);
+    localStorage.setItem('annoto_role',  data.role  || 'student');
+
+    // Clear the loop-guard flag just in case it was set
+    sessionStorage.removeItem('annoto_redirected_to_login');
+
+    btn.innerHTML = '✓ Success! Redirecting...';
+
+    // Small delay so user sees the success state
+    setTimeout(() => redirectByRole(data.role), 600);
+
+  } catch(e) {
+    if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      showErr('Cannot connect to server.\nMake sure server.py is running, then refresh.');
+    } else {
+      showErr('Error: ' + e.message);
+    }
+  } finally {
+    setTimeout(() => {
+      btn.disabled  = false;
+      btn.innerHTML = 'Sign In';
+    }, 2000);
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('errMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+</script>
+</body>
+</html>
