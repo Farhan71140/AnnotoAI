@@ -419,7 +419,7 @@ function downloadPDF(){
   var fullHtml='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
     +'<title>AnnotoAI Annotation Report</title>'
     +'<style>'+css+'</style></head><body>'+body
-    +'<'+'script>window.onload=function(){window.print();}<'+'/scri'+'pt>'
+    +'<'+'script>window.onload=function(){document.title="AnnotoAI_Annotation_Report";window.print();}<'+'/scri'+'pt>'
     +'</body></html>';
 
   var win=window.open('','_blank','width=1200,height=800');

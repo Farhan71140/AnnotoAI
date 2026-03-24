@@ -663,6 +663,16 @@ footer{
 </div>
 
 <script>
+
+function getServerURL() {
+  // If running on localhost, use local server
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:7842';
+  }
+  // If deployed, use same origin (HF Spaces serves both frontend and backend)
+  return window.location.origin;
+}
+
 let whisperData = null;
 let lastResult  = null;
 let selectedAudioFile = null;
@@ -719,13 +729,13 @@ async function transcribeAudio(){
       status.textContent='Uploading audio to server...';
       const fd = new FormData();
       fd.append('audio', selectedAudioFile);
-      const r = await fetch('http://localhost:7842/transcribe',{method:'POST',body:fd});
+      const r = await fetch(getServerURL()+'/transcribe',{method:'POST',body:fd});
       const d = await r.json();
       if(d.error) throw new Error(d.error);
       whisperData = d.result;
     } else if(annoticUrl){
       status.textContent='Fetching audio from URL...';
-      const r = await fetch('http://localhost:7842/transcribe-url',{
+      const r = await fetch(getServerURL()+'/transcribe-url',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({url:annoticUrl})
       });
@@ -784,7 +794,7 @@ async function runAnnotation(){
   errEl.classList.remove('show');
 
   try{
-    const resp = await fetch('http://localhost:7842/annotate',{
+    const resp = await fetch(getServerURL()+'/annotate',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({

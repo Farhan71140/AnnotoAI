@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnnotoAI — Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#03040a;--s1:#080912;--s2:#0d0f1e;--s3:#12152a;
+  --border:#1c2040;--border2:#252850;
+  --blue:#4f6ef7;--blue2:#7b93ff;--cyan:#00e5cc;
+  --pink:#f25aad;--amber:#f5a623;--green:#22d98a;--red:#ff5269;
+  --text:#e4e8ff;--muted:#4a506e;--muted2:#6b738f;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 15% 0%,rgba(79,110,247,0.08) 0%,transparent 60%);pointer-events:none;z-index:0;}
+.grid{position:fixed;inset:0;background-image:linear-gradient(rgba(79,110,247,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,110,247,0.03) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px;}
+
+header{padding:24px 0 20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);margin-bottom:28px;}
+.logo-mark{width:44px;height:44px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:#fff;box-shadow:0 0 20px rgba(79,110,247,0.3);}
+.brand h1{font-size:18px;font-weight:800;background:linear-gradient(90deg,var(--text),var(--blue2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.brand p{font-size:11px;color:var(--muted2);margin-top:2px;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.admin-badge{background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.25);color:var(--amber);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;}
+.btn-sm{background:var(--s2);border:1px solid var(--border2);border-radius:8px;color:var(--muted2);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;transition:all 0.2s;}
+.btn-sm:hover{border-color:var(--red);color:var(--red);}
+
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;}
+.stat{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px 18px;text-align:center;}
+.stat-num{font-size:28px;font-weight:800;line-height:1;}
+.stat-label{font-size:10px;color:var(--muted2);margin-top:5px;text-transform:uppercase;letter-spacing:0.5px;}
+
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:20px;}
+.card-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.card-dot{width:8px;height:8px;border-radius:50%;}
+.card-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);}
+.card-body{padding:20px;}
+
+/* Add user form */
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;}
+input,select{background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;padding:10px 14px;outline:none;width:100%;transition:border-color 0.2s;}
+input:focus,select:focus{border-color:var(--blue);}
+input::placeholder{color:var(--muted);}
+label{display:block;font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.btn-add{background:linear-gradient(135deg,var(--green),#00a362);border:none;border-radius:10px;color:#000;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;padding:10px 20px;cursor:pointer;white-space:nowrap;transition:all 0.2s;}
+.btn-add:hover{transform:translateY(-1px);}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--s3);}
+th{padding:10px 14px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:700;}
+td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.025);vertical-align:middle;}
+tr:hover td{background:rgba(79,110,247,0.03);}
+tr:last-child td{border-bottom:none;}
+
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;}
+.badge-active{background:rgba(34,217,138,0.12);color:var(--green);border:1px solid rgba(34,217,138,0.2);}
+.badge-disabled{background:rgba(255,82,105,0.1);color:#ff8096;border:1px solid rgba(255,82,105,0.2);}
+.badge-admin{background:rgba(245,166,35,0.1);color:var(--amber);border:1px solid rgba(245,166,35,0.2);}
+.badge-online{background:rgba(0,229,204,0.1);color:var(--cyan);border:1px solid rgba(0,229,204,0.2);}
+
+.act-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted2);font-size:11px;padding:4px 10px;cursor:pointer;transition:all 0.15s;margin-right:4px;}
+.act-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.act-btn.danger:hover{border-color:var(--red);color:var(--red);}
+
+/* Log */
+.log-entry{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03);}
+.log-entry:last-child{border-bottom:none;}
+.log-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.log-info{flex:1;}
+.log-name{font-size:13px;font-weight:600;}
+.log-detail{font-size:11px;color:var(--muted2);margin-top:2px;}
+.log-time{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:400px;}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:16px;}
+.modal input{margin-bottom:12px;}
+.modal-btns{display:flex;gap:10px;margin-top:16px;}
+.btn-cancel{background:var(--s2);border:1px solid var(--border);border-radius:10px;color:var(--muted2);font-family:'Outfit',sans-serif;font-weight:600;font-size:13px;padding:10px 20px;cursor:pointer;flex:1;}
+.btn-confirm{background:linear-gradient(135deg,var(--blue),#7b5cf7);border:none;border-radius:10px;color:#fff;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;padding:10px 20px;cursor:pointer;flex:1;}
+
+.msg{padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;display:none;}
+.msg.success{background:rgba(34,217,138,0.08);border:1px solid rgba(34,217,138,0.2);color:var(--green);}
+.msg.error{background:rgba(255,82,105,0.08);border:1px solid rgba(255,82,105,0.2);color:#ff8096;}
+.msg.show{display:block;}
+
+@media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr);}.form-row{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="wrap">
+
+  <header>
+    <div class="logo-mark">A</div>
+    <div class="brand">
+      <h1>AnnotoAI Admin</h1>
+      <p>User Management &amp; Usage Dashboard</p>
+    </div>
+    <div class="header-right">
+      <span class="admin-badge">&#9733; Admin</span>
+      <button class="btn-sm" onclick="goToTool()">&#8594; Open Tool</button>
+      <button class="btn-sm" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div id="mainMsg" class="msg"></div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat"><div class="stat-num" id="s1" style="color:var(--blue2)">-</div><div class="stat-label">Total Students</div></div>
+    <div class="stat"><div class="stat-num" id="s2" style="color:var(--cyan)">-</div><div class="stat-label">Online Now</div></div>
+    <div class="stat"><div class="stat-num" id="s3" style="color:var(--green)">-</div><div class="stat-label">Logins Today</div></div>
+    <div class="stat"><div class="stat-num" id="s4" style="color:var(--amber)">-</div><div class="stat-label">Tasks Today</div></div>
+    <div class="stat"><div class="stat-num" id="s5" style="color:var(--pink)">-</div><div class="stat-label">Annotations Today</div></div>
+  </div>
+
+  <!-- Active Sessions -->
+  <div class="card" id="activeCard" style="display:none;">
+    <div class="card-head">
+      <div class="card-dot" style="background:var(--cyan)"></div>
+      <span class="card-title">Currently Online</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>Student</th><th>Login Time</th><th>Duration</th>
+          <th>Transcriptions</th><th>Annotations</th><th>Idle</th>
+        </tr></thead>
+        <tbody id="activeTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add Student -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-dot" style="background:var(--green)"></div>
+      <span class="card-title">Add New Student</span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div>
+          <label>Username</label>
+          <input type="text" id="newUsername" placeholder="e.g. student1">
+        </div>
+        <div>
+          <label>Full Name</label>
+          <input type="text" id="newName" placeholder="e.g. Mohammed Ali">
+        </div>
+        <div>
+          <label>Password</label>
+          <input type="password" id="newPassword" placeholder="Set a password">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn-add" onclick="addUser()">+ Add Student</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Users -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-dot" style="background:var(--blue)"></div>
+      <span class="card-title">All Students</span>
+      <button class="btn-sm" style="margin-left:auto;" onclick="loadDashboard()">&#8635; Refresh</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Name</th><th>Username</th><th>Status</th>
+          <th>Sessions</th><th>Total Hours</th><th>Tasks Done</th>
+          <th>Last Seen</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="usersTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent Activity Log -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-dot" style="background:var(--amber)"></div>
+      <span class="card-title">Recent Activity</span>
+    </div>
+    <div class="card-body" id="logBody">
+      <div style="text-align:center;color:var(--muted);padding:20px;">Loading...</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:24px 0 40px;font-size:11px;color:var(--muted2);border-top:1px solid var(--border);margin-top:8px;">
+    AnnotoAI Admin &nbsp;&#183;&nbsp; DesicrewAI &nbsp;&#183;&nbsp;
+    <span style="background:linear-gradient(90deg,var(--blue),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700;">Md Farhan Uddin</span>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal">
+    <h3>&#128274; Reset Password</h3>
+    <p style="font-size:12px;color:var(--muted2);margin-bottom:16px;">Set a new password for <strong id="resetUsername"></strong></p>
+    <label>New Password</label>
+    <input type="password" id="resetPassword" placeholder="Enter new password">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmReset()">Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const token = localStorage.getItem('annoto_token');
+const role  = localStorage.getItem('annoto_role');
+
+// Immediately check localStorage — if no token or not admin, go to login
+if (!token || role !== 'admin') {
+  localStorage.clear();
+  window.location.href = '/login';
+}
+
+// Also verify with server right away (catches stale tokens after restart)
+(async function verifySession() {
+  try {
+    const resp = await fetch('/verify-token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token})
+    });
+    const data = await resp.json();
+    if (!data.valid || data.role !== 'admin') {
+      // Token rejected by server (e.g. server restarted) — force login
+      localStorage.clear();
+      window.location.href = '/login';
+    }
+  } catch(e) {
+    // Server unreachable — clear and redirect to login
+    localStorage.clear();
+    window.location.href = '/login';
+  }
+})();
+
+let currentResetUser = '';
+
+async function loadDashboard() {
+  try {
+    const resp = await fetch('/admin/dashboard', {
+      headers: {'Authorization': 'Bearer ' + token}
+    });
+
+    // If server returns 401/403 or any auth error
+    if (resp.status === 401 || resp.status === 403) {
+      localStorage.clear();
+      window.location.href = '/login';
+      return;
+    }
+
+    const data = await resp.json();
+    if (data.error) {
+      localStorage.clear();
+      window.location.href = '/login';
+      return;
+    }
+
+    const s = data.summary;
+    document.getElementById('s1').textContent = s.total_users;
+    document.getElementById('s2').textContent = s.active_now;
+    document.getElementById('s3').textContent = s.today_logins;
+    document.getElementById('s4').textContent = s.today_tasks;
+    document.getElementById('s5').textContent = s.today_annotations;
+
+    // Active sessions
+    const activeCard  = document.getElementById('activeCard');
+    const activeTbody = document.getElementById('activeTbody');
+    if (data.active_sessions.length > 0) {
+      activeCard.style.display = 'block';
+      activeTbody.innerHTML = data.active_sessions.map(s => `
+        <tr>
+          <td><strong>${s.name}</strong><br><span style="font-size:11px;color:var(--muted2)">@${s.username}</span></td>
+          <td style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted2)">${formatTime(s.login_time)}</td>
+          <td style="color:var(--cyan)">${s.duration_hrs}h</td>
+          <td>${s.transcriptions}</td>
+          <td style="color:var(--green)">${s.annotations}</td>
+          <td style="color:${s.idle_mins > 15 ? 'var(--amber)' : 'var(--muted2)'}">${s.idle_mins}m</td>
+        </tr>`).join('');
+    } else {
+      activeCard.style.display = 'none';
+    }
+
+    // Users table
+    const tbody   = document.getElementById('usersTbody');
+    const students = data.users.filter(u => u.role !== 'admin');
+    tbody.innerHTML = students.map((u, i) => `
+      <tr>
+        <td style="color:var(--muted)">${i+1}</td>
+        <td><strong>${u.name}</strong></td>
+        <td style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted2)">@${u.username}</td>
+        <td>
+          ${u.active
+            ? '<span class="badge badge-active">&#9679; Active</span>'
+            : '<span class="badge badge-disabled">&#9679; Disabled</span>'}
+        </td>
+        <td>${u.total_sessions}</td>
+        <td style="color:var(--cyan)">${u.total_hours}h</td>
+        <td style="color:var(--green)">${u.total_tasks}</td>
+        <td style="font-size:11px;color:var(--muted2)">${u.last_seen === 'Never' ? 'Never' : formatTime(u.last_seen)}</td>
+        <td>
+          <button class="act-btn" onclick="resetPass('${u.username}')">&#128274; Reset PW</button>
+          ${u.active
+            ? `<button class="act-btn danger" onclick="toggleUser('${u.username}', false)">Disable</button>`
+            : `<button class="act-btn" onclick="toggleUser('${u.username}', true)">Enable</button>`}
+          <button class="act-btn danger" onclick="removeUser('${u.username}', '${u.name}')">&#128465; Remove</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px;">No students yet. Add students above!</td></tr>';
+
+    // Activity log
+    const logBody = document.getElementById('logBody');
+    const icons  = {login:'&#128100;',logout:'&#128682;',transcription:'&#127908;',annotation:'&#9997;',user_created:'&#43;'};
+    const colors = {login:'rgba(79,110,247,0.15)',logout:'rgba(107,115,143,0.1)',transcription:'rgba(0,229,204,0.12)',annotation:'rgba(34,217,138,0.12)',user_created:'rgba(245,166,35,0.12)'};
+    const labels = {login:'Logged in',logout:'Logged out',transcription:'Transcribed audio',annotation:'Completed annotation',user_created:'Account created'};
+
+    logBody.innerHTML = data.recent_log.length
+      ? data.recent_log.slice(0,30).map(e => `
+        <div class="log-entry">
+          <div class="log-icon" style="background:${colors[e.event]||'rgba(79,110,247,0.1)'}">${icons[e.event]||'&#9679;'}</div>
+          <div class="log-info">
+            <div class="log-name">${e.name || e.username}
+              ${e.duration_hrs ? `<span style="font-size:11px;color:var(--muted2);font-weight:400;margin-left:8px;">&#9201; ${e.duration_hrs}h session</span>` : ''}
+              ${e.tasks_done   ? `<span style="font-size:11px;color:var(--green);font-weight:400;margin-left:8px;">&#10003; ${e.tasks_done} tasks</span>` : ''}
+            </div>
+            <div class="log-detail">${labels[e.event]||e.event}</div>
+          </div>
+          <div class="log-time">${formatTime(e.time)}</div>
+        </div>`).join('')
+      : '<div style="text-align:center;color:var(--muted);padding:30px;">No activity yet</div>';
+
+  } catch(e) {
+    // Fetch failed entirely (server down/restarted) — kick to login
+    localStorage.clear();
+    window.location.href = '/login';
+  }
+}
+
+function formatTime(iso) {
+  if (!iso) return '-';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-IN') + ' ' + d.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'});
+  } catch { return iso; }
+}
+
+async function addUser() {
+  const username = document.getElementById('newUsername').value.trim();
+  const name     = document.getElementById('newName').value.trim();
+  const password = document.getElementById('newPassword').value;
+
+  if (!username || !name || !password) {
+    showMsg('Please fill all fields', 'error'); return;
+  }
+
+  try {
+    const resp = await fetch('/admin/add-user', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({username, name, password, role:'student'})
+    });
+    const data = await resp.json();
+    if (data.error) { showMsg(data.error, 'error'); return; }
+    showMsg(`Student "${name}" added successfully! Username: ${username}`, 'success');
+    document.getElementById('newUsername').value = '';
+    document.getElementById('newName').value     = '';
+    document.getElementById('newPassword').value = '';
+    loadDashboard();
+  } catch(e) { showMsg('Error: ' + e.message, 'error'); }
+}
+
+async function removeUser(username, name) {
+  if (!confirm(`Remove student "${name}" (@${username})? This cannot be undone.`)) return;
+  try {
+    const resp = await fetch('/admin/remove-user', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({username})
+    });
+    const data = await resp.json();
+    if (data.error) { showMsg(data.error, 'error'); return; }
+    showMsg(`Student "${name}" removed.`, 'success');
+    loadDashboard();
+  } catch(e) { showMsg('Error: ' + e.message, 'error'); }
+}
+
+async function toggleUser(username, active) {
+  try {
+    const resp = await fetch('/admin/toggle-user', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({username, active})
+    });
+    const data = await resp.json();
+    if (data.error) { showMsg(data.error, 'error'); return; }
+    showMsg(`User @${username} ${active ? 'enabled' : 'disabled'}.`, 'success');
+    loadDashboard();
+  } catch(e) { showMsg('Error: ' + e.message, 'error'); }
+}
+
+function resetPass(username) {
+  currentResetUser = username;
+  document.getElementById('resetUsername').textContent = '@' + username;
+  document.getElementById('resetPassword').value = '';
+  document.getElementById('resetModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('resetModal').classList.remove('show');
+}
+
+async function confirmReset() {
+  const newPassword = document.getElementById('resetPassword').value;
+  if (!newPassword) { alert('Please enter a new password'); return; }
+  try {
+    const resp = await fetch('/admin/reset-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({username: currentResetUser, new_password: newPassword})
+    });
+    const data = await resp.json();
+    closeModal();
+    if (data.error) { showMsg(data.error, 'error'); return; }
+    showMsg(`Password reset for @${currentResetUser}`, 'success');
+  } catch(e) { showMsg('Error: ' + e.message, 'error'); }
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('mainMsg');
+  el.textContent = text;
+  el.className   = 'msg ' + type + ' show';
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function goToTool() { window.location.href = '/tool'; }
+
+async function doLogout() {
+  try {
+    await fetch('/logout', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+  } catch(e) {}
+  localStorage.clear();
+  window.location.href = '/login';
+}
+
+// Load dashboard on start, refresh every 30 seconds
+loadDashboard();
+setInterval(loadDashboard, 30000);
+</script>
+</body>
+</html>
