@@ -34,9 +34,17 @@ try:
     from config import GROQ_KEYS, GEMINI_KEY
     print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s)")
 except ImportError:
-    print("[!] config.py not found!")
-    GROQ_KEYS  = []
-    GEMINI_KEY = ""
+    # Leapcell / cloud deployment: read keys from environment variables
+    GROQ_KEYS = []
+    for _i in range(1, 20):
+        _k = os.environ.get(f"GROQ_KEY_{_i}", "").strip()
+        if _k:
+            GROQ_KEYS.append(_k)
+    GEMINI_KEY = os.environ.get("GEMINI_KEY", "").strip()
+    if GROQ_KEYS:
+        print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s) from environment")
+    else:
+        print("[!] config.py not found and no GROQ_KEY_* env vars set!")
 
 _groq_key_index = 0
 _groq_exhausted = set()
@@ -699,7 +707,8 @@ if __name__ == '__main__':
     print("  DO NOT CLOSE THIS WINDOW!")
     print("=" * 55)
 
-    if not os.environ.get('RENDER'):
+    _is_cloud = os.environ.get('LEAPCELL') or os.environ.get('LEAPCELL_APP_NAME')
+    if not _is_cloud:
         def open_browser():
             time.sleep(2)
             webbrowser.open(f'http://localhost:{PORT}')
