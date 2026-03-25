@@ -527,12 +527,61 @@ def run_groq_whisper(audio_path, original_filename):
         return {"error": f"Transcription failed: {str(e)}"}
 
 
+MAX_WORDS_PER_CHUNK = 120
+
+
+def _chunked_annotate(payload, chunk_size):
+    """Split large word lists into chunks, annotate each, then merge results."""
+    import random
+    words = payload.get("words", [])
+    all_annotations = []
+    all_annotic     = []
+
+    for i in range(0, len(words), chunk_size):
+        chunk = words[i:i + chunk_size]
+        chunk_payload = dict(payload)
+        chunk_payload["words"] = chunk
+        # Only include silence gaps whose timestamps fall within this chunk's time range
+        chunk_start = chunk[0].get("start_seconds", 0)
+        chunk_end   = chunk[-1].get("end_seconds", 9999999)
+        chunk_payload["silence_gaps"] = [
+            s for s in payload.get("silence_gaps", [])
+            if chunk_start <= s.get("gap_seconds", 0) <= chunk_end
+        ]
+        print(f"[*] Chunk {i // chunk_size + 1}/{-(-len(words) // chunk_size)}: words {i}–{i + len(chunk) - 1}")
+        result = call_groq_annotate(chunk_payload)
+        if result.get("status") != "ok":
+            return result  # propagate error immediately
+        res = result["result"]
+        all_annotations.extend(res.get("annotations", []))
+        all_annotic.extend(res.get("annotic_json", {}).get("annotations", []))
+
+    merged = {
+        "transcript":   " ".join(a.get("annotated", "") for a in all_annotations),
+        "annotations":  all_annotations,
+        "explanation":  "Chunked annotation merged.",
+        "annotic_json": {
+            "file_name":   payload.get("filename", "audio.wav"),
+            "id":          random.randint(10000, 99999),
+            "annotations": all_annotic,
+        }
+    }
+    print(f"[*] Chunked merge complete. Total annotations: {len(all_annotations)}")
+    return {"status": "ok", "result": merged}
+
+
 def call_groq_annotate(payload):
     ref          = payload.get("reference", "")
     words        = payload.get("words", [])
     transcript   = payload.get("transcript", "")
     filename     = payload.get("filename", "audio.wav")
     silence_gaps = payload.get("silence_gaps", [])
+
+    # If word list is too large for one API call, split into chunks
+    if len(words) > MAX_WORDS_PER_CHUNK:
+        print(f"[*] {len(words)} words exceeds limit — splitting into chunks of {MAX_WORDS_PER_CHUNK}")
+        return _chunked_annotate(payload, MAX_WORDS_PER_CHUNK)
+
     words_fmt    = "\n".join([
         f'"{w["word"]}" [{w["start"]} -> {w["end"]}] HINT:{w.get("hint","NORMAL")}'
         for w in words
@@ -609,7 +658,7 @@ def call_groq_annotate(payload):
                 json={"model": "llama-3.3-70b-versatile",
                       "messages": [{"role": "system", "content": SYSTEM_PROMPT},
                                    {"role": "user",   "content": user_msg}],
-                      "max_tokens": 32000, "temperature": 0.1},
+                      "max_tokens": 8000, "temperature": 0.1},
                 timeout=180
             )
             if resp.status_code == 429:
@@ -654,15 +703,15 @@ def parse_ai_response(raw):
     def try4(): return json.loads(re.sub(r',\s*([}\]])', r'\1', re.search(r'\{[\s\S]*\}', cleaned).group()))
     def try5(): return json.loads(cleaned.encode('utf-8').decode('utf-8-sig'))
 
-    for attempt in [try1, try2, try3, try4, try5]:
+    for i, attempt in enumerate([try1, try2, try3, try4, try5], 1):
         try:
             parsed = attempt()
             if "annotic_json" in parsed:
                 parsed["annotic_json"]["id"] = random.randint(10000, 99999)
             print(f"[*] Done! {len(parsed.get('annotations', []))} annotations")
             return {"status": "ok", "result": parsed}
-        except:
-            pass
+        except Exception as e:
+            print(f"[!] Parse attempt {i} failed: {e}")
 
     # Fallback: try to extract just the annotations array and build minimal valid response
     try:
@@ -686,10 +735,10 @@ def parse_ai_response(raw):
             }
             print(f"[*] Done via fallback! {len(anns)} annotations")
             return {"status": "ok", "result": result}
-    except:
-        pass
+    except Exception as e:
+        print(f"[!] Fallback parse also failed: {e}")
 
-    print(f"[!] Could not parse response. Raw length: {len(raw)}")
+    print(f"[!] Could not parse response. Raw (first 500 chars): {raw[:500]}")
     return {"error": "Could not parse AI response. Please try again.", "raw": raw[:500]}
 
 
