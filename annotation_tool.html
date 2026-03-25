@@ -830,6 +830,47 @@ async function runAnnotation(){
 }
 
 /* ── Display results ── */
+function fmtTime(t){
+  // Accept either "H:MM:SS.ffffff" or a plain number (seconds)
+  if(!t && t!==0) return '';
+  if(typeof t === 'number' || (typeof t === 'string' && /^[\d.]+$/.test(t.trim()))){
+    // Convert raw seconds → H:MM:SS.mmm
+    const secs = parseFloat(t);
+    const h  = Math.floor(secs / 3600);
+    const m  = Math.floor((secs % 3600) / 60);
+    const s  = Math.floor(secs % 60);
+    const ms = Math.round((secs - Math.floor(secs)) * 1000);
+    return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+  }
+  // Already formatted string — normalise to H:MM:SS.mmm (trim microseconds to ms)
+  const str = String(t).trim();
+  const match = str.match(/^(\d+):(\d{2}):(\d{2})\.(\d+)$/);
+  if(match){
+    const ms = match[4].substring(0,3).padEnd(3,'0');
+    return `${match[1]}:${match[2]}:${match[3]}.${ms}`;
+  }
+  return str;
+}
+
+function getField(a, ...keys){
+  // Try multiple possible field names, return first found
+  for(const k of keys){ if(a[k]!==undefined && a[k]!==null && a[k]!=='') return a[k]; }
+  return '';
+}
+
+function getRuleColor(rule){
+  const r = (rule||'').toUpperCase();
+  if(r.includes('D1') || r.includes('ENGLISH')) return 'var(--accent)';
+  if(r.includes('D3') || r.includes('DEVANAGARI')) return '#f59e0b';
+  if(r.includes('D2') || r.includes('SUBSTITUTE')) return '#a78bfa';
+  if(r.includes('FIL')) return '#f472b6';
+  if(r.includes('MB'))  return '#ef4444';
+  if(r.includes('SIL')) return '#60a5fa';
+  if(r.includes('NOISE')) return '#94a3b8';
+  if(r.includes('LN'))  return '#34d399';
+  return 'var(--muted2)';
+}
+
 function displayResults(data){
   document.getElementById('outputArea').style.display='block';
   document.getElementById('transcriptOut').innerHTML = hlTags(data.transcript||'');
@@ -838,14 +879,20 @@ function displayResults(data){
   const tbody = document.getElementById('wordTableBody');
   tbody.innerHTML='';
   (data.annotations||[]).forEach((a,i)=>{
+    // Support multiple possible field names the AI might return
+    const original  = getField(a, 'original', 'word', 'original_word', 'whisper_word');
+    const annotated = getField(a, 'annotated', 'annotation', 'transcription', 'text');
+    const startRaw  = getField(a, 'start', 'start_time', 'startTime', 'time_start');
+    const endRaw    = getField(a, 'end',   'end_time',   'endTime',   'time_end');
+    const rule      = getField(a, 'rule',  'decision',   'rule_applied', 'type', 'label');
     const tr = document.createElement('tr');
     tr.innerHTML=`
       <td style="color:var(--muted2)">${i+1}</td>
-      <td class="col-orig">${esc(a.original||'')}</td>
-      <td class="col-ann">${hlTags(a.annotated||'')}</td>
-      <td class="col-time">${a.start||''}</td>
-      <td class="col-time">${a.end||''}</td>
-      <td class="col-rule">${esc(a.rule||'')}</td>`;
+      <td class="col-orig">${esc(original)}</td>
+      <td class="col-ann">${hlTags(annotated)}</td>
+      <td class="col-time">${fmtTime(startRaw)}</td>
+      <td class="col-time">${fmtTime(endRaw)}</td>
+      <td class="col-rule" style="color:${getRuleColor(rule)};font-weight:500">${esc(rule)}</td>`;
     tbody.appendChild(tr);
   });
 
