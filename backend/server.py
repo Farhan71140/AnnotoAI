@@ -649,12 +649,12 @@ if __name__ == '__main__':
     print("  DO NOT CLOSE THIS WINDOW!")
     print("=" * 55)
 
-    def open_browser():
-        time.sleep(2)
-        webbrowser.open(f'http://localhost:{PORT}')
-
-    threading.Thread(target=open_browser, daemon=True).start()
-    server = http.server.HTTPServer(('localhost', PORT), AnnotoHandler)
+    if not os.environ.get('RENDER'):
+        def open_browser():
+            time.sleep(2)
+            webbrowser.open(f'http://localhost:{PORT}')
+        threading.Thread(target=open_browser, daemon=True).start()
+    server = http.server.HTTPServer(('0.0.0.0', PORT), AnnotoHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
