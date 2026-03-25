@@ -1,4 +1,3 @@
-
 # Whisper output (temporary file)
 transcript_output.json
 
@@ -9,3 +8,6 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+
+# API Keys — never push to GitHub
+config.py
