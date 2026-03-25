@@ -831,7 +831,7 @@ async function runAnnotation(){
 
 /* ── Display results ── */
 function fmtTime(t){
-  // Accept either "H:MM:SS.ffffff" or a plain number (seconds)
+  // Accept: H:MM:SS.ffffff, H:MM:SS.mmm, plain seconds number/string
   if(!t && t!==0) return '';
   if(typeof t === 'number' || (typeof t === 'string' && /^[\d.]+$/.test(t.trim()))){
     // Convert raw seconds → H:MM:SS.mmm
@@ -842,13 +842,17 @@ function fmtTime(t){
     const ms = Math.round((secs - Math.floor(secs)) * 1000);
     return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
   }
-  // Already formatted string — normalise to H:MM:SS.mmm (trim microseconds to ms)
+  // Already a formatted string — normalise fractional part to exactly 3 digits (ms)
   const str = String(t).trim();
   const match = str.match(/^(\d+):(\d{2}):(\d{2})\.(\d+)$/);
   if(match){
+    // Take first 3 digits of fractional part (microseconds → milliseconds)
     const ms = match[4].substring(0,3).padEnd(3,'0');
     return `${match[1]}:${match[2]}:${match[3]}.${ms}`;
   }
+  // Try H:MM:SS with no fractional part
+  const match2 = str.match(/^(\d+):(\d{2}):(\d{2})$/);
+  if(match2) return `${match2[1]}:${match2[2]}:${match2[3]}.000`;
   return str;
 }
 
@@ -860,7 +864,7 @@ function getField(a, ...keys){
 
 function getRuleColor(rule){
   const r = (rule||'').toUpperCase();
-  if(r.includes('D1') || r.includes('ENGLISH')) return 'var(--accent)';
+  if(r.includes('D1') || r.includes('ENGLISH')) return 'var(--cyan)';
   if(r.includes('D3') || r.includes('DEVANAGARI')) return '#f59e0b';
   if(r.includes('D2') || r.includes('SUBSTITUTE')) return '#a78bfa';
   if(r.includes('FIL')) return '#f472b6';

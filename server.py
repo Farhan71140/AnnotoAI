@@ -552,9 +552,21 @@ def _chunked_annotate(payload, chunk_size):
         # Carry only the silence gaps that fall inside this chunk's time window
         chunk_start = chunk[0].get("start_seconds", 0)
         chunk_end   = chunk[-1].get("end_seconds", 9999999)
+
+        def _sil_to_secs(s):
+            """Convert sil_start string 'H:MM:SS.ffffff' to float seconds for comparison."""
+            t = s.get("sil_start", "")
+            if not t:
+                return s.get("gap_seconds", 0)
+            try:
+                p = str(t).split(":")
+                return int(p[0]) * 3600 + int(p[1]) * 60 + float(p[2])
+            except Exception:
+                return 0.0
+
         chunk_payload["silence_gaps"] = [
             s for s in payload.get("silence_gaps", [])
-            if chunk_start <= s.get("sil_start_seconds", s.get("gap_seconds", 0)) <= chunk_end
+            if chunk_start <= _sil_to_secs(s) <= chunk_end
         ]
 
         print(f"[*] Chunk {chunk_num}/{total_chunks}: words {i}–{i + len(chunk) - 1}")
@@ -667,7 +679,19 @@ def call_groq_annotate(payload):
         f"- ProperNoun+Devanagari for all names of people, places, brands, animals.\n"
         f"- D3-Devanagari for non-English sounds or unrecognisable mispronunciations.\n"
         f"- D1-English for clear recognisable English words only.\n"
-        f"Return ONLY valid JSON. No markdown. No code fences."
+        f"Return ONLY valid JSON. No markdown. No code fences.\n"
+        f"The JSON MUST follow this exact schema — no other field names allowed:\n"
+        f"{{\n"
+        f"  \"annotations\": [\n"
+        f"    {{\"original\": \"<whisper word>\", \"annotated\": \"<annotated form>\", "
+        f"\"start\": \"<copy start timestamp exactly>\", \"end\": \"<copy end timestamp exactly>\", "
+        f"\"rule\": \"<D1-English|D2-SubstituteEnglish|D3-Devanagari|FIL|MB|SIL|NOISE|LN>\"}},\n"
+        f"    ...\n"
+        f"  ],\n"
+        f"  \"transcript\": \"<full annotated text joined with spaces>\",\n"
+        f"  \"explanation\": \"<brief summary>\"\n"
+        f"}}\n"
+        f"CRITICAL: Copy start/end timestamps EXACTLY as given in the word list. Do not round or reformat them."
     )
 
     print(f"[*] Annotating {len(words)} words...")
@@ -719,20 +743,46 @@ def call_gemini_annotate(user_msg):
         return {"error": f"Gemini error: {str(e)}"}
 
 
+def _normalize_annotation(a):
+    """Normalize AI output annotation to consistent field names.
+    Handles whatever key names the AI decided to use."""
+    original  = (a.get('original')   or a.get('word')        or
+                 a.get('original_word') or a.get('whisper_word') or '')
+    annotated = (a.get('annotated')  or a.get('annotation')  or
+                 a.get('transcription') or a.get('text')      or original)
+    start     = (a.get('start')      or a.get('start_time')  or
+                 a.get('startTime')  or a.get('time_start')   or '')
+    end       = (a.get('end')        or a.get('end_time')    or
+                 a.get('endTime')    or a.get('time_end')     or '')
+    rule      = (a.get('rule')       or a.get('decision')    or
+                 a.get('rule_applied') or a.get('type')       or
+                 a.get('label')      or '')
+    # Preserve any extra keys the AI returned
+    result = dict(a)
+    result.update({'original': original, 'annotated': annotated,
+                   'start': start, 'end': end, 'rule': rule})
+    return result
+
+
 def _build_result_from_anns(anns, filename="audio.wav"):
     import random
-    transcript = " ".join(a.get("annotated", "") for a in anns)
+    # Normalize all annotations first so field names are always consistent
+    normalized = [_normalize_annotation(a) for a in anns]
+    transcript = " ".join(a.get("annotated", "") for a in normalized)
     return {
         "transcript": transcript,
-        "annotations": anns,
+        "annotations": normalized,
         "explanation": "Parsed successfully.",
         "annotic_json": {
             "file_name": filename,
             "id": random.randint(10000, 99999),
             "annotations": [
                 {"start": a.get("start", ""), "end": a.get("end", ""),
+                 "original": a.get("original", ""),
+                 "annotated": a.get("annotated", ""),
+                 "rule": a.get("rule", ""),
                  "Transcription": [a.get("annotated", "")]}
-                for a in anns
+                for a in normalized
             ]
         }
     }
@@ -763,6 +813,10 @@ def parse_ai_response(raw):
                 return {"status": "ok", "result": result}
             if "annotic_json" in parsed:
                 parsed["annotic_json"]["id"] = random.randint(10000, 99999)
+            # Normalize annotation field names regardless of what the AI returned
+            if "annotations" in parsed and isinstance(parsed["annotations"], list):
+                parsed["annotations"] = [_normalize_annotation(a) for a in parsed["annotations"]]
+                parsed["transcript"] = " ".join(a.get("annotated","") for a in parsed["annotations"])
             print(f"[*] Done! {len(parsed.get('annotations', []))} annotations")
             return {"status": "ok", "result": parsed}
         except Exception as e:
