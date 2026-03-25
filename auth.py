@@ -12,7 +12,7 @@ import hashlib
 import secrets
 import datetime
 
-AUTH_FILE  = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'auth_data.json')
+AUTH_FILE  = os.path.join('/tmp', 'auth_data.json')
 
 # ── Admin credentials ──
 ADMIN_1_USERNAME = "farhan"
