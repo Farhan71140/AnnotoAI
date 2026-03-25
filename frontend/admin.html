@@ -229,7 +229,7 @@ if (!token || role !== 'admin') {
 // Also verify with server right away (catches stale tokens after restart)
 (async function verifySession() {
   try {
-    const resp = await fetch('/verify-token', {
+    const resp = await fetch('https://annotoai.onrender.com/verify-token', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({token})
@@ -251,7 +251,7 @@ let currentResetUser = '';
 
 async function loadDashboard() {
   try {
-    const resp = await fetch('/admin/dashboard', {
+    const resp = await fetch('https://annotoai.onrender.com/admin/dashboard', {
       headers: {'Authorization': 'Bearer ' + token}
     });
 
@@ -366,7 +366,7 @@ async function addUser() {
   }
 
   try {
-    const resp = await fetch('/admin/add-user', {
+    const resp = await fetch('https://annotoai.onrender.com/admin/add-user', {
       method: 'POST',
       headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
       body: JSON.stringify({username, name, password, role:'student'})
@@ -384,7 +384,7 @@ async function addUser() {
 async function removeUser(username, name) {
   if (!confirm(`Remove student "${name}" (@${username})? This cannot be undone.`)) return;
   try {
-    const resp = await fetch('/admin/remove-user', {
+    const resp = await fetch('https://annotoai.onrender.com/admin/remove-user', {
       method: 'POST',
       headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
       body: JSON.stringify({username})
@@ -398,7 +398,7 @@ async function removeUser(username, name) {
 
 async function toggleUser(username, active) {
   try {
-    const resp = await fetch('/admin/toggle-user', {
+    const resp = await fetch('https://annotoai.onrender.com/admin/toggle-user', {
       method: 'POST',
       headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
       body: JSON.stringify({username, active})
@@ -425,7 +425,7 @@ async function confirmReset() {
   const newPassword = document.getElementById('resetPassword').value;
   if (!newPassword) { alert('Please enter a new password'); return; }
   try {
-    const resp = await fetch('/admin/reset-password', {
+    const resp = await fetch('https://annotoai.onrender.com/admin/reset-password', {
       method: 'POST',
       headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
       body: JSON.stringify({username: currentResetUser, new_password: newPassword})
@@ -448,7 +448,7 @@ function goToTool() { window.location.href = '/tool'; }
 
 async function doLogout() {
   try {
-    await fetch('/logout', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    await fetch('https://annotoai.onrender.com/logout', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
   } catch(e) {}
   localStorage.clear();
   window.location.href = '/login';

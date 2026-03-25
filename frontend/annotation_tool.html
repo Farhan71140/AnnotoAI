@@ -669,8 +669,8 @@ function getServerURL() {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:7842';
   }
-  // If deployed, use same origin (HF Spaces serves both frontend and backend)
-  return window.location.origin;
+  // Deployed — point to Render backend
+  return 'https://annotoai.onrender.com';
 }
 
 let whisperData = null;
