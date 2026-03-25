@@ -219,7 +219,13 @@ function processJSON(json) {
     transcript  = json.result.transcript || '';
   } else if (json.annotic_json && json.annotic_json.annotations) {
     annotations = json.annotic_json.annotations.map(function(a){
-      return {original:a.Transcription?a.Transcription[0]:'',annotated:a.Transcription?a.Transcription[0]:'',start:a.start||'',end:a.end||'',rule:'annotic json'};
+      return {
+        original:  a.original  || (a.Transcription ? a.Transcription[0] : '') || '',
+        annotated: a.annotated || (a.Transcription ? a.Transcription[0] : '') || '',
+        start:     a.start || '',
+        end:       a.end   || '',
+        rule:      a.rule  || 'annotic json'
+      };
     });
     transcript = json.transcript || '';
   }
@@ -270,20 +276,32 @@ function renderTable(data) {
 }
 
 function fmtTime(t) {
-  if (!t) return '--:--:--.---';
+  if (!t && t !== 0) return '--:--:--.---';
+  // Plain number (raw seconds)
+  if (typeof t === 'number' || (typeof t === 'string' && /^[\d.]+$/.test(String(t).trim()))) {
+    var secs = parseFloat(t);
+    var h  = Math.floor(secs / 3600);
+    var m  = Math.floor((secs % 3600) / 60);
+    var s  = Math.floor(secs % 60);
+    var ms = Math.round((secs - Math.floor(secs)) * 1000);
+    return h+':'+pad2(m)+':'+pad2(s)+'.'+pad3(ms);
+  }
   try {
-    var p = t.trim().split(':');
-    var hh='00',mm='00',ss='00',ms='000';
-    if (p.length===3) {
-      hh=p[0].padStart(2,'0'); mm=p[1].padStart(2,'0');
-      var s=p[2].split('.'); ss=s[0].padStart(2,'0'); ms=s[1]?s[1].padEnd(3,'0').slice(0,3):'000';
-    } else if (p.length===2) {
-      mm=p[0].padStart(2,'0');
-      var s2=p[1].split('.'); ss=s2[0].padStart(2,'0'); ms=s2[1]?s2[1].padEnd(3,'0').slice(0,3):'000';
+    var str = String(t).trim();
+    // H:MM:SS.ffffff or H:MM:SS.mmm
+    var match = str.match(/^(\d+):(\d{2}):(\d{2})\.(\d+)$/);
+    if (match) {
+      var ms2 = match[4].substring(0,3).padEnd ? match[4].substring(0,3) : (match[4]+'000').substring(0,3);
+      return match[1]+':'+match[2]+':'+match[3]+'.'+ms2;
     }
-    return hh+' : '+mm+' : '+ss+' . '+ms;
-  } catch(e){ return t; }
+    // H:MM:SS no fractional
+    var match2 = str.match(/^(\d+):(\d{2}):(\d{2})$/);
+    if (match2) return match2[1]+':'+match2[2]+':'+match2[3]+'.000';
+    return str;
+  } catch(e){ return String(t); }
 }
+function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+function pad3(n){ return n < 10 ? '00'+n : n < 100 ? '0'+n : ''+n; }
 
 function renderAnnot(text) {
   if (!text) return '';
