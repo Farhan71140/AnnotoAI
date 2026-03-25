@@ -370,16 +370,30 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
         })
 
     def handle_transcribe_upload(self):
-        import cgi
+        import email.parser, email.policy
         print("[*] Receiving audio file...")
         try:
-            form      = cgi.FieldStorage(fp=self.rfile, headers=self.headers,
-                          environ={'REQUEST_METHOD': 'POST', 'CONTENT_TYPE': self.headers['Content-Type']})
-            file_item = form['audio']
-            filename  = file_item.filename or 'audio.wav'
-            ext       = os.path.splitext(filename)[1] or '.wav'
-            tmp       = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=tempfile.gettempdir())
-            tmp.write(file_item.file.read())
+            content_type = self.headers['Content-Type']
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            # Parse multipart manually
+            msg_bytes = b'Content-Type: ' + content_type.encode() + b'\r\n\r\n' + body
+            msg = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(msg_bytes)
+            file_item = None
+            filename = 'audio.wav'
+            file_data = None
+            for part in msg.walk():
+                cd = part.get('Content-Disposition', '')
+                if 'name="audio"' in cd:
+                    fn = part.get_filename()
+                    if fn: filename = fn
+                    file_data = part.get_payload(decode=True)
+                    break
+            if file_data is None:
+                self.send_json({"error": "No audio file found in request"}); return
+            ext = os.path.splitext(filename)[1] or '.wav'
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=tempfile.gettempdir())
+            tmp.write(file_data)
             tmp.close()
             result = run_groq_whisper(tmp.name, filename)
             try: os.unlink(tmp.name)
