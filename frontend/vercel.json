@@ -1,5 +1,9 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/login.html" }
+    { "source": "/", "destination": "/login.html" },
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/tool", "destination": "/annotation_tool.html" },
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/view", "destination": "/view_annotations.html" }
   ]
 }
