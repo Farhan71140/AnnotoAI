@@ -178,7 +178,7 @@ input::placeholder{color:var(--muted);}
   const token = localStorage.getItem('annoto_token');
   if (!token) return; // no token → show login form normally
 
-  fetch('/verify-token', {
+  fetch('https://annotoai.onrender.com/verify-token', {
     method:  'POST',
     headers: {'Content-Type': 'application/json'},
     body:    JSON.stringify({token})
@@ -245,7 +245,7 @@ async function doLogin() {
   btn.innerHTML = '<span class="spin"></span>Signing in...';
 
   try {
-    const resp = await fetch('/login', {
+    const resp = await fetch('https://annotoai.onrender.com/login', {
       method:  'POST',
       headers: {'Content-Type': 'application/json'},
       body:    JSON.stringify({username, password})
