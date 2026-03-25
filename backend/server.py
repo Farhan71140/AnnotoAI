@@ -633,12 +633,19 @@ def call_gemini_annotate(user_msg):
 
 def parse_ai_response(raw):
     import re, random
-    cleaned = raw.replace("```json", "").replace("```", "").strip()
-    for attempt in [
-        lambda: json.loads(cleaned),
-        lambda: json.loads(re.search(r'\{[\s\S]*\}', cleaned).group()),
-        lambda: json.loads(re.sub(r',\s*([}\]])', r'\1', cleaned)),
-    ]:
+    cleaned = raw.strip()
+    for fence in ["```json", "```"]:
+        if cleaned.startswith(fence):
+            cleaned = cleaned[len(fence):]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+    cleaned = cleaned.strip()
+    def try1(): return json.loads(cleaned)
+    def try2(): return json.loads(re.search(r'\{[\s\S]*\}', cleaned).group())
+    def try3(): return json.loads(re.sub(r',\s*([}\]])', r'\1', cleaned))
+    def try4(): return json.loads(re.sub(r',\s*([}\]])', r'\1', re.search(r'\{[\s\S]*\}', cleaned).group()))
+    def try5(): return json.loads(cleaned.encode('utf-8').decode('utf-8-sig'))
+    for attempt in [try1, try2, try3, try4, try5]:
         try:
             parsed = attempt()
             if "annotic_json" in parsed:
