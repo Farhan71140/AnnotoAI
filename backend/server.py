@@ -633,18 +633,19 @@ def call_gemini_annotate(user_msg):
 
 def parse_ai_response(raw):
     import re, random
+
+    # Strip markdown fences
     cleaned = raw.strip()
-    for fence in ["```json", "```"]:
-        if cleaned.startswith(fence):
-            cleaned = cleaned[len(fence):]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
+    cleaned = re.sub(r'^```json\s*', '', cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r'^```\s*', '', cleaned, flags=re.MULTILINE)
     cleaned = cleaned.strip()
+
     def try1(): return json.loads(cleaned)
     def try2(): return json.loads(re.search(r'\{[\s\S]*\}', cleaned).group())
     def try3(): return json.loads(re.sub(r',\s*([}\]])', r'\1', cleaned))
     def try4(): return json.loads(re.sub(r',\s*([}\]])', r'\1', re.search(r'\{[\s\S]*\}', cleaned).group()))
     def try5(): return json.loads(cleaned.encode('utf-8').decode('utf-8-sig'))
+
     for attempt in [try1, try2, try3, try4, try5]:
         try:
             parsed = attempt()
@@ -652,8 +653,36 @@ def parse_ai_response(raw):
                 parsed["annotic_json"]["id"] = random.randint(10000, 99999)
             print(f"[*] Done! {len(parsed.get('annotations', []))} annotations")
             return {"status": "ok", "result": parsed}
-        except: pass
-    return {"error": "Could not parse AI response", "raw": raw[:300]}
+        except:
+            pass
+
+    # Fallback: try to extract just the annotations array and build minimal valid response
+    try:
+        ann_match = re.search(r'"annotations"\s*:\s*(\[[\s\S]*?\])\s*[,}]', cleaned)
+        if ann_match:
+            anns = json.loads(ann_match.group(1))
+            transcript = " ".join(a.get("annotated", "") for a in anns)
+            result = {
+                "transcript": transcript,
+                "annotations": anns,
+                "explanation": "Parsed via fallback method.",
+                "annotic_json": {
+                    "file_name": "audio.wav",
+                    "id": random.randint(10000, 99999),
+                    "annotations": [
+                        {"start": a.get("start",""), "end": a.get("end",""),
+                         "Transcription": [a.get("annotated","")]}
+                        for a in anns
+                    ]
+                }
+            }
+            print(f"[*] Done via fallback! {len(anns)} annotations")
+            return {"status": "ok", "result": result}
+    except:
+        pass
+
+    print(f"[!] Could not parse response. Raw length: {len(raw)}")
+    return {"error": "Could not parse AI response. Please try again.", "raw": raw[:500]}
 
 
 if __name__ == '__main__':
