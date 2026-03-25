@@ -667,21 +667,7 @@ def call_groq_annotate(payload):
         f"- ProperNoun+Devanagari for all names of people, places, brands, animals.\n"
         f"- D3-Devanagari for non-English sounds or unrecognisable mispronunciations.\n"
         f"- D1-English for clear recognisable English words only.\n"
-        f"\n=== REQUIRED JSON OUTPUT FORMAT ===\n"
-        f"Return ONLY this exact JSON structure. No markdown. No code fences. No extra text.\n"
-        f"{{\n"
-        f"  \"transcript\": \"full annotated transcript as one string\",\n"
-        f"  \"annotations\": [\n"
-        f"    {{\n"
-        f"      \"original\": \"exact word from Whisper\",\n"
-        f"      \"annotated\": \"annotated form with tags if needed\",\n"
-        f"      \"start\": \"timestamp exactly as given in word list\",\n"
-        f"      \"end\": \"timestamp exactly as given in word list\",\n"
-        f"      \"rule\": \"one of: D1-English | D2-SubstituteEnglish | D3-Devanagari | FIL | MB | NOISE | SIL | LN\"\n"
-        f"    }}\n"
-        f"  ],\n"
-        f"  \"explanation\": \"brief overall summary\"\n"
-        f"}}"
+        f"Return ONLY valid JSON. No markdown. No code fences."
     )
 
     print(f"[*] Annotating {len(words)} words...")
