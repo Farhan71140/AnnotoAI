@@ -1,3 +1,4 @@
+from annotate import call_rule_engine
 import sys
 import os
 import json
@@ -463,7 +464,7 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
     def handle_annotate(self):
         try:
             payload = self.read_json()
-            result  = call_gemini_annotate_full(payload)
+            result = call_rule_engine(payload) 
             if AUTH_ENABLED and result.get('status') == 'ok':
                 record_action(self.get_token(), 'annotation')
             self.send_json(result)
