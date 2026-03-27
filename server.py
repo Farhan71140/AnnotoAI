@@ -15,10 +15,9 @@ import http.server
 try:
     from auth import (login, logout, verify_token, record_action,
                      add_user, remove_user, toggle_user,
-                     reset_password, get_dashboard_data, clear_all_sessions)
+                     reset_password, get_dashboard_data)
     AUTH_ENABLED = True
     print("[*] Auth system loaded")
-    clear_all_sessions()
 except ImportError:
     AUTH_ENABLED = False
     print("[!] auth.py not found - running without auth")
