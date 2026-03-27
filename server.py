@@ -36,50 +36,66 @@ try:
     from config import GROQ_KEYS, GEMINI_KEY
     ASSEMBLYAI_KEYS = getattr(__import__('config'), 'ASSEMBLYAI_KEYS', [])
     GEMINI_KEYS     = getattr(__import__('config'), 'GEMINI_KEYS', [GEMINI_KEY] if GEMINI_KEY else [])
-    print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s)")
+    print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s) from config.py")
 except ImportError:
-    # Leapcell / cloud deployment: read keys from environment variables
+    # ── Cloud deployment (Leapcell or any other host) ────────────────────────
+    # Reads keys from environment variables.
+    # Supported names:
+    #   ASSEMBLYAI_KEY        — single key
+    #   ASSEMBLYAI_KEY_1 ..   — multiple keys
+    #   GEMINI_KEY            — single key
+    #   GEMINI_KEY_1 ..       — multiple keys
+    #   GROQ_KEY_1 ..         — optional fallback keys
     GROQ_KEYS = []
     for _i in range(1, 20):
         _k = os.environ.get(f"GROQ_KEY_{_i}", "").strip()
         if _k:
             GROQ_KEYS.append(_k)
 
-    # AssemblyAI keys: ASSEMBLYAI_KEY_1, ASSEMBLYAI_KEY_2, ASSEMBLYAI_KEY_3 ...
+    # AssemblyAI
     ASSEMBLYAI_KEYS = []
+    _single_aai = os.environ.get("ASSEMBLYAI_KEY", "").strip()
+    if _single_aai:
+        ASSEMBLYAI_KEYS.append(_single_aai)
     for _i in range(1, 10):
         _k = os.environ.get(f"ASSEMBLYAI_KEY_{_i}", "").strip()
-        if _k:
+        if _k and _k not in ASSEMBLYAI_KEYS:
             ASSEMBLYAI_KEYS.append(_k)
-    # Also support single ASSEMBLYAI_KEY
-    _single_aai = os.environ.get("ASSEMBLYAI_KEY", "").strip()
-    if _single_aai and _single_aai not in ASSEMBLYAI_KEYS:
-        ASSEMBLYAI_KEYS.insert(0, _single_aai)
 
-    # Gemini keys: GEMINI_KEY_1, GEMINI_KEY_2 ... up to 6
+    # Gemini
     GEMINI_KEYS = []
+    _single_gem = os.environ.get("GEMINI_KEY", "").strip()
+    if _single_gem:
+        GEMINI_KEYS.append(_single_gem)
     for _i in range(1, 10):
         _k = os.environ.get(f"GEMINI_KEY_{_i}", "").strip()
-        if _k:
+        if _k and _k not in GEMINI_KEYS:
             GEMINI_KEYS.append(_k)
-    # Also support single GEMINI_KEY
-    _single_gem = os.environ.get("GEMINI_KEY", "").strip()
-    if _single_gem and _single_gem not in GEMINI_KEYS:
-        GEMINI_KEYS.insert(0, _single_gem)
     GEMINI_KEY = GEMINI_KEYS[0] if GEMINI_KEYS else ""
 
+    # ── Startup summary ───────────────────────────────────────────────────────
     if ASSEMBLYAI_KEYS:
         print(f"[*] Loaded {len(ASSEMBLYAI_KEYS)} AssemblyAI key(s) — primary transcription")
     else:
-        print("[!] No ASSEMBLYAI_KEY_* set — falling back to Groq Whisper for transcription")
+        print("[!] WARNING: No AssemblyAI keys found!")
+        print("[!]   Set env var ASSEMBLYAI_KEY=your_key_here")
+        if GROQ_KEYS:
+            print(f"[!]   Falling back to Groq Whisper ({len(GROQ_KEYS)} key(s))")
+        else:
+            print("[!]   No Groq keys either — transcription will FAIL")
+
     if GEMINI_KEYS:
         print(f"[*] Loaded {len(GEMINI_KEYS)} Gemini key(s) — primary annotation")
     else:
-        print("[!] No GEMINI_KEY_* set — falling back to Groq for annotation")
+        print("[!] WARNING: No Gemini keys found!")
+        print("[!]   Set env var GEMINI_KEY=your_key_here")
+        if GROQ_KEYS:
+            print(f"[!]   Falling back to Groq LLM ({len(GROQ_KEYS)} key(s))")
+        else:
+            print("[!]   No Groq keys either — annotation will FAIL")
+
     if GROQ_KEYS:
         print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s) — fallback only")
-    else:
-        print("[!] No GROQ_KEY_* set — Groq fallback unavailable")
 
 # ── AssemblyAI key rotation ───────────────────────────────────────────────────
 _assemblyai_key_index = 0
@@ -127,7 +143,7 @@ def _mark_key_exhausted(key):
     try:
         idx = GROQ_KEYS.index(key)
         _groq_exhausted.add(idx)
-        print(f"[!] Key #{idx+1} exhausted.")
+        print(f"[!] Groq Key #{idx+1} exhausted.")
     except ValueError:
         pass
 
@@ -290,13 +306,29 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
             self.serve_file('view_annotations.html')
 
         elif path == '/admin':
-            # ✅ FIX: Serve admin.html directly — browser navigations cannot send
-            # Authorization headers, so token validation must happen client-side
-            # inside admin.html on page load via /verify-token fetch call.
             self.serve_file('admin.html')
 
         elif path == '/check':
-            self.send_json({"status": "ok", "keys": len(GROQ_KEYS)})
+            self.send_json({
+                "status": "ok",
+                "assemblyai_keys": len(ASSEMBLYAI_KEYS),
+                "gemini_keys": len(GEMINI_KEYS),
+                "groq_keys": len(GROQ_KEYS),
+            })
+
+        # ── NEW: debug endpoint to diagnose key loading on Leapcell ──────────
+        elif path == '/debug-keys':
+            self.send_json({
+                "assemblyai_keys_loaded": len(ASSEMBLYAI_KEYS),
+                "assemblyai_key_1_set":   bool(os.environ.get("ASSEMBLYAI_KEY_1", "").strip()),
+                "assemblyai_key_set":     bool(os.environ.get("ASSEMBLYAI_KEY", "").strip()),
+                "gemini_keys_loaded":     len(GEMINI_KEYS),
+                "gemini_key_1_set":       bool(os.environ.get("GEMINI_KEY_1", "").strip()),
+                "gemini_key_set":         bool(os.environ.get("GEMINI_KEY", "").strip()),
+                "groq_keys_loaded":       len(GROQ_KEYS),
+                "leapcell_env":           bool(os.environ.get("LEAPCELL") or os.environ.get("LEAPCELL_APP_NAME")),
+                "config_py_used":         False,
+            })
 
         elif path == '/test-keys':
             self.handle_test_keys()
@@ -424,7 +456,6 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
             self.send_json({"valid": False})
 
     def handle_admin_dashboard(self):
-        # ✅ API endpoints still do full server-side token + role check
         if AUTH_ENABLED:
             token = self.get_token()
             user  = verify_token(token)
@@ -434,7 +465,6 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
         self.send_json(get_dashboard_data())
 
     def handle_admin_action(self, action):
-        # ✅ API endpoints still do full server-side token + role check
         if AUTH_ENABLED:
             token = self.get_token()
             user  = verify_token(token)
@@ -492,12 +522,10 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
             content_type = self.headers['Content-Type']
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
-            # Parse multipart manually
             msg_bytes = b'Content-Type: ' + content_type.encode() + b'\r\n\r\n' + body
             msg = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(msg_bytes)
-            file_item = None
-            filename = 'audio.wav'
             file_data = None
+            filename = 'audio.wav'
             for part in msg.walk():
                 cd = part.get('Content-Disposition', '')
                 if 'name="audio"' in cd:
@@ -554,7 +582,7 @@ def run_assemblyai_whisper(audio_path, original_filename):
     import time
     key = _get_next_assemblyai_key()
     if not key:
-        return {"error": "No AssemblyAI keys available"}
+        return {"error": "No AssemblyAI keys available. Set ASSEMBLYAI_KEY env var in Leapcell."}
     print(f"[*] AssemblyAI transcribing: {original_filename}")
 
     # Step 1: Upload audio file
@@ -662,17 +690,29 @@ def run_transcribe(audio_path, original_filename):
         result = run_assemblyai_whisper(audio_path, original_filename)
         if result.get("status") == "ok":
             return result
-        print(f"[!] AssemblyAI failed: {result.get('error')} — falling back to Groq Whisper")
+        error_msg = result.get('error', 'unknown error')
+        print(f"[!] AssemblyAI failed: {error_msg}")
+        # Only fall back to Groq if we actually have Groq keys
+        if not GROQ_KEYS:
+            return {"error": f"Transcription failed: {error_msg}. No fallback keys available."}
+        print(f"[!] Falling back to Groq Whisper ({len(GROQ_KEYS)} key(s))...")
     else:
-        print("[!] No AssemblyAI keys — using Groq Whisper")
+        # No AssemblyAI keys at all
+        if GROQ_KEYS:
+            print("[!] No AssemblyAI keys — using Groq Whisper")
+        else:
+            return {"error": (
+                "No transcription API keys found. "
+                "Please set ASSEMBLYAI_KEY in your Leapcell environment variables."
+            )}
     return run_groq_whisper(audio_path, original_filename)
 
 
 def run_groq_whisper(audio_path, original_filename):
-    print(f"[*] Transcribing: {original_filename}")
+    print(f"[*] Groq Whisper transcribing: {original_filename}")
     key = _get_next_groq_key()
     if not key:
-        return {"error": "No Groq API keys available."}
+        return {"error": "No Groq API keys available. Set GROQ_KEY_1 or ASSEMBLYAI_KEY env vars."}
     file_size = os.path.getsize(audio_path)
     if file_size > 25 * 1024 * 1024:
         return {"error": "Audio too large. Max 25MB."}
@@ -698,7 +738,7 @@ def run_groq_whisper(audio_path, original_filename):
             _mark_key_exhausted(key)
             key2 = _get_next_groq_key()
             if key2: resp = do_request(key2)
-            else: return {"error": "All keys rate limited."}
+            else: return {"error": "All Groq keys rate limited."}
         if resp.status_code != 200:
             return {"error": f"Groq Whisper Error {resp.status_code}: {resp.text[:300]}"}
         result          = resp.json()
@@ -744,7 +784,7 @@ def run_groq_whisper(audio_path, original_filename):
                                "sil_start": fmt(0), "sil_end": words[0]["start"], "type": "leading"}
             silence_gaps.insert(0, leading_silence)
 
-        print(f"[*] Done! {len(words)} words")
+        print(f"[*] Groq Whisper done! {len(words)} words")
         return {"status": "ok", "result": {
             "audio_file": original_filename, "full_transcript": full_transcript,
             "words": words, "silence_gaps": silence_gaps,
@@ -755,20 +795,16 @@ def run_groq_whisper(audio_path, original_filename):
 
 
 MAX_WORDS_PER_CHUNK = 80
-MAX_CHUNK_RETRIES   = 3   # retries per chunk before giving up
-CHUNK_RETRY_DELAY   = 2   # seconds to wait between retries
+MAX_CHUNK_RETRIES   = 3
+CHUNK_RETRY_DELAY   = 2
 
 
 def _chunked_annotate(payload, chunk_size):
-    """
-    Split large word lists into chunks, annotate each with key rotation +
-    retry on 429/failure, then merge all results.
-    """
     import random, time
     words        = payload.get("words", [])
     all_annotations = []
     all_annotic     = []
-    total_chunks    = -(-len(words) // chunk_size)  # ceiling division
+    total_chunks    = -(-len(words) // chunk_size)
 
     for i in range(0, len(words), chunk_size):
         chunk        = words[i:i + chunk_size]
@@ -776,12 +812,10 @@ def _chunked_annotate(payload, chunk_size):
         chunk_payload = dict(payload)
         chunk_payload["words"] = chunk
 
-        # Carry only the silence gaps that fall inside this chunk's time window
         chunk_start = chunk[0].get("start_seconds", 0)
         chunk_end   = chunk[-1].get("end_seconds", 9999999)
 
         def _sil_to_secs(s):
-            """Convert sil_start string 'H:MM:SS.ffffff' to float seconds for comparison."""
             t = s.get("sil_start", "")
             if not t:
                 return s.get("gap_seconds", 0)
@@ -798,7 +832,6 @@ def _chunked_annotate(payload, chunk_size):
 
         print(f"[*] Chunk {chunk_num}/{total_chunks}: words {i}–{i + len(chunk) - 1}")
 
-        # ── Retry loop with key rotation ─────────────────────────────────────
         last_error = None
         for attempt in range(1, MAX_CHUNK_RETRIES + 1):
             result = call_groq_annotate(chunk_payload)
@@ -806,8 +839,6 @@ def _chunked_annotate(payload, chunk_size):
                 last_error = None
                 break
             last_error = result.get("error", "unknown error")
-            # If all Groq keys are exhausted fall back to Gemini (handled inside
-            # call_groq_annotate already), so just propagate that error.
             if "exhausted" in last_error.lower() or "gemini" in last_error.lower():
                 return result
             print(f"[!] Chunk {chunk_num} attempt {attempt} failed: {last_error} — retrying in {CHUNK_RETRY_DELAY}s")
@@ -828,7 +859,7 @@ def _chunked_annotate(payload, chunk_size):
         "explanation":  f"Chunked annotation merged ({total_chunks} chunks).",
         "annotic_json": {
             "file_name":   payload.get("filename", "audio.wav"),
-            "id":          random.randint(10000, 99999),
+            "id":          __import__('random').randint(10000, 99999),
             "annotations": all_annotic,
         }
     }
@@ -843,7 +874,6 @@ def call_groq_annotate(payload):
     filename     = payload.get("filename", "audio.wav")
     silence_gaps = payload.get("silence_gaps", [])
 
-    # If word list is too large for one API call, split into chunks
     if len(words) > MAX_WORDS_PER_CHUNK:
         print(f"[*] {len(words)} words exceeds limit — splitting into chunks of {MAX_WORDS_PER_CHUNK}")
         return _chunked_annotate(payload, MAX_WORDS_PER_CHUNK)
@@ -871,7 +901,6 @@ def call_groq_annotate(payload):
         for s in silence_gaps
     ]) or "None"
 
-    # Build hint summary to reinforce hints in user message
     filler_words = [w["word"] for w in words if w.get("hint") == "LIKELY_FILLER"]
     proper_words = [w["word"] for w in words if w.get("hint") == "LIKELY_PROPER_NOUN"]
     devan_words  = [w["word"] for w in words if w.get("hint") == "LIKELY_DEVANAGARI"]
@@ -921,7 +950,7 @@ def call_groq_annotate(payload):
         f"CRITICAL: Copy start/end timestamps EXACTLY as given in the word list. Do not round or reformat them."
     )
 
-    # ── Gemini PRIMARY for annotation (saves Groq for Whisper fallback only) ──
+    # ── Gemini PRIMARY ────────────────────────────────────────────────────────
     if GEMINI_KEYS:
         print(f"[*] Annotating {len(words)} words via Gemini (primary)...")
         result = call_gemini_annotate(user_msg)
@@ -929,9 +958,15 @@ def call_groq_annotate(payload):
             return result
         print(f"[!] Gemini failed: {result.get('error')} — falling back to Groq")
     else:
-        print("[!] No Gemini keys — using Groq for annotation")
+        print("[!] No Gemini keys — trying Groq for annotation")
 
-    # ── Groq FALLBACK only ────────────────────────────────────────────────────
+    # ── Groq FALLBACK ─────────────────────────────────────────────────────────
+    if not GROQ_KEYS:
+        return {"error": (
+            "Annotation failed: No Gemini keys available and no Groq fallback keys. "
+            "Set GEMINI_KEY in your Leapcell environment variables."
+        )}
+
     print(f"[*] Annotating {len(words)} words via Groq (fallback)...")
     attempted = set()
     while True:
@@ -947,10 +982,10 @@ def call_groq_annotate(payload):
                       "messages": [{"role": "system", "content": SYSTEM_PROMPT},
                                    {"role": "user",   "content": user_msg}],
                       "max_tokens": 8000, "temperature": 0.1},
-                timeout=60   # 60s per chunk is enough; avoids Leapcell HTTP timeout
+                timeout=60
             )
             if resp.status_code == 429:
-                print(f"[!] Key rate-limited on chunk — rotating to next key")
+                print(f"[!] Groq key rate-limited — rotating to next key")
                 _mark_key_exhausted(key); continue
             if resp.status_code != 200:
                 return {"error": f"Groq Error {resp.status_code}: {resp.text[:300]}"}
@@ -992,8 +1027,6 @@ def call_gemini_annotate(user_msg):
 
 
 def _normalize_annotation(a):
-    """Normalize AI output annotation to consistent field names.
-    Handles whatever key names the AI decided to use."""
     original  = (a.get('original')   or a.get('word')        or
                  a.get('original_word') or a.get('whisper_word') or '')
     annotated = (a.get('annotated')  or a.get('annotation')  or
@@ -1005,7 +1038,6 @@ def _normalize_annotation(a):
     rule      = (a.get('rule')       or a.get('decision')    or
                  a.get('rule_applied') or a.get('type')       or
                  a.get('label')      or '')
-    # Preserve any extra keys the AI returned
     result = dict(a)
     result.update({'original': original, 'annotated': annotated,
                    'start': start, 'end': end, 'rule': rule})
@@ -1014,7 +1046,6 @@ def _normalize_annotation(a):
 
 def _build_result_from_anns(anns, filename="audio.wav"):
     import random
-    # Normalize all annotations first so field names are always consistent
     normalized = [_normalize_annotation(a) for a in anns]
     transcript = " ".join(a.get("annotated", "") for a in normalized)
     return {
@@ -1039,7 +1070,6 @@ def _build_result_from_anns(anns, filename="audio.wav"):
 def parse_ai_response(raw):
     import re, random
 
-    # Strip markdown fences
     cleaned = raw.strip()
     cleaned = re.sub(r'^```json\s*', '', cleaned, flags=re.MULTILINE)
     cleaned = re.sub(r'^```\s*', '', cleaned, flags=re.MULTILINE)
@@ -1054,14 +1084,12 @@ def parse_ai_response(raw):
     for i, attempt in enumerate([try1, try2, try3, try4, try5], 1):
         try:
             parsed = attempt()
-            # Case: AI returned a bare array instead of an object
             if isinstance(parsed, list):
                 print(f"[*] AI returned bare array with {len(parsed)} items — wrapping")
                 result = _build_result_from_anns(parsed)
                 return {"status": "ok", "result": result}
             if "annotic_json" in parsed:
                 parsed["annotic_json"]["id"] = random.randint(10000, 99999)
-            # Normalize annotation field names regardless of what the AI returned
             if "annotations" in parsed and isinstance(parsed["annotations"], list):
                 parsed["annotations"] = [_normalize_annotation(a) for a in parsed["annotations"]]
                 parsed["transcript"] = " ".join(a.get("annotated","") for a in parsed["annotations"])
@@ -1070,7 +1098,6 @@ def parse_ai_response(raw):
         except Exception as e:
             print(f"[!] Parse attempt {i} failed: {e}")
 
-    # Fallback A: extract annotations key from partial/truncated object
     try:
         ann_match = re.search(r'"annotations"\s*:\s*(\[[\s\S]*?\])\s*[,}]', cleaned)
         if ann_match:
@@ -1082,7 +1109,6 @@ def parse_ai_response(raw):
     except Exception as e:
         print(f"[!] Fallback A failed: {e}")
 
-    # Fallback B: salvage complete annotation objects even from truncated array
     try:
         obj_matches = re.findall(r'\{[^{}]*"annotated"[^{}]*\}', cleaned)
         if obj_matches:
@@ -1105,8 +1131,8 @@ if __name__ == '__main__':
     print("  AnnotoAI — Full Pipeline")
     print("=" * 55)
     print(f"  URL          : http://localhost:{PORT}")
-    print(f"  Transcription: {'AssemblyAI x' + str(len(ASSEMBLYAI_KEYS)) + ' (primary)' if ASSEMBLYAI_KEYS else 'Groq Whisper only (fallback)'}")
-    print(f"  Annotation   : {'Gemini x' + str(len(GEMINI_KEYS)) + ' (primary)' if GEMINI_KEYS else 'Groq LLM only (fallback)'}")
+    print(f"  Transcription: {'AssemblyAI x' + str(len(ASSEMBLYAI_KEYS)) + ' (primary)' if ASSEMBLYAI_KEYS else 'Groq Whisper only (fallback)' if GROQ_KEYS else '❌ NO KEYS SET'}")
+    print(f"  Annotation   : {'Gemini x' + str(len(GEMINI_KEYS)) + ' (primary)' if GEMINI_KEYS else 'Groq LLM only (fallback)' if GROQ_KEYS else '❌ NO KEYS SET'}")
     print(f"  Groq keys    : {len(GROQ_KEYS)} (fallback only)")
     print(f"  Auth         : {'Enabled' if AUTH_ENABLED else 'Disabled'}")
     print()
