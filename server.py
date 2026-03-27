@@ -497,14 +497,14 @@ def run_assemblyai_whisper(audio_path, original_filename):
         return {"error": f"AssemblyAI upload error: {str(e)}"}
 
     # Step 2: Submit transcription job
-    # ✅ FIX: speech_model is now required by AssemblyAI API
+    # ✅ FIX: speech_models is now required by AssemblyAI API
     try:
         sub = requests.post(
             ASSEMBLYAI_SUBMIT,
             headers={"authorization": key, "content-type": "application/json"},
             json={
                 "audio_url":    upload_url,
-                "speech_model": "universal-2",   # ← REQUIRED: was missing before
+                "speech_models": "universal-2",   # ← REQUIRED: was missing before
                 "format_text":  False,
             },
             timeout=30
