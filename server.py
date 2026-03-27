@@ -504,7 +504,7 @@ def run_assemblyai_whisper(audio_path, original_filename):
             headers={"authorization": key, "content-type": "application/json"},
             json={
                 "audio_url":    upload_url,
-                "speech_models": "universal-2",   # ← REQUIRED: was missing before
+               "speech_models": ["universal-2"],  # ← Must be a LIST   # ← REQUIRED: was missing before
                 "format_text":  False,
             },
             timeout=30
