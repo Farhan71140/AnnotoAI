@@ -26,12 +26,16 @@ except ImportError:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = int(os.environ.get("PORT", 7842))
 
-GROQ_URL         = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_WHISPER_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
-GEMINI_URL       = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GROQ_URL          = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_WHISPER_URL  = "https://api.groq.com/openai/v1/audio/transcriptions"
+GEMINI_URL        = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+ASSEMBLYAI_UPLOAD = "https://api.assemblyai.com/v2/upload"
+ASSEMBLYAI_SUBMIT = "https://api.assemblyai.com/v2/transcript"
 
 try:
     from config import GROQ_KEYS, GEMINI_KEY
+    ASSEMBLYAI_KEYS = getattr(__import__('config'), 'ASSEMBLYAI_KEYS', [])
+    GEMINI_KEYS     = getattr(__import__('config'), 'GEMINI_KEYS', [GEMINI_KEY] if GEMINI_KEY else [])
     print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s)")
 except ImportError:
     # Leapcell / cloud deployment: read keys from environment variables
@@ -40,11 +44,64 @@ except ImportError:
         _k = os.environ.get(f"GROQ_KEY_{_i}", "").strip()
         if _k:
             GROQ_KEYS.append(_k)
-    GEMINI_KEY = os.environ.get("GEMINI_KEY", "").strip()
-    if GROQ_KEYS:
-        print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s) from environment")
+
+    # AssemblyAI keys: ASSEMBLYAI_KEY_1, ASSEMBLYAI_KEY_2, ASSEMBLYAI_KEY_3 ...
+    ASSEMBLYAI_KEYS = []
+    for _i in range(1, 10):
+        _k = os.environ.get(f"ASSEMBLYAI_KEY_{_i}", "").strip()
+        if _k:
+            ASSEMBLYAI_KEYS.append(_k)
+    # Also support single ASSEMBLYAI_KEY
+    _single_aai = os.environ.get("ASSEMBLYAI_KEY", "").strip()
+    if _single_aai and _single_aai not in ASSEMBLYAI_KEYS:
+        ASSEMBLYAI_KEYS.insert(0, _single_aai)
+
+    # Gemini keys: GEMINI_KEY_1, GEMINI_KEY_2 ... up to 6
+    GEMINI_KEYS = []
+    for _i in range(1, 10):
+        _k = os.environ.get(f"GEMINI_KEY_{_i}", "").strip()
+        if _k:
+            GEMINI_KEYS.append(_k)
+    # Also support single GEMINI_KEY
+    _single_gem = os.environ.get("GEMINI_KEY", "").strip()
+    if _single_gem and _single_gem not in GEMINI_KEYS:
+        GEMINI_KEYS.insert(0, _single_gem)
+    GEMINI_KEY = GEMINI_KEYS[0] if GEMINI_KEYS else ""
+
+    if ASSEMBLYAI_KEYS:
+        print(f"[*] Loaded {len(ASSEMBLYAI_KEYS)} AssemblyAI key(s) — primary transcription")
     else:
-        print("[!] config.py not found and no GROQ_KEY_* env vars set!")
+        print("[!] No ASSEMBLYAI_KEY_* set — falling back to Groq Whisper for transcription")
+    if GEMINI_KEYS:
+        print(f"[*] Loaded {len(GEMINI_KEYS)} Gemini key(s) — primary annotation")
+    else:
+        print("[!] No GEMINI_KEY_* set — falling back to Groq for annotation")
+    if GROQ_KEYS:
+        print(f"[*] Loaded {len(GROQ_KEYS)} Groq key(s) — fallback only")
+    else:
+        print("[!] No GROQ_KEY_* set — Groq fallback unavailable")
+
+# ── AssemblyAI key rotation ───────────────────────────────────────────────────
+_assemblyai_key_index = 0
+
+def _get_next_assemblyai_key():
+    global _assemblyai_key_index
+    if not ASSEMBLYAI_KEYS:
+        return None
+    key = ASSEMBLYAI_KEYS[_assemblyai_key_index % len(ASSEMBLYAI_KEYS)]
+    _assemblyai_key_index = (_assemblyai_key_index + 1) % len(ASSEMBLYAI_KEYS)
+    return key
+
+# ── Gemini key rotation ───────────────────────────────────────────────────────
+_gemini_key_index = 0
+
+def _get_next_gemini_key():
+    global _gemini_key_index
+    if not GEMINI_KEYS:
+        return None
+    key = GEMINI_KEYS[_gemini_key_index % len(GEMINI_KEYS)]
+    _gemini_key_index = (_gemini_key_index + 1) % len(GEMINI_KEYS)
+    return key
 
 _groq_key_index = 0
 _groq_exhausted = set()
@@ -454,7 +511,7 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=tempfile.gettempdir())
             tmp.write(file_data)
             tmp.close()
-            result = run_groq_whisper(tmp.name, filename)
+            result = run_transcribe(tmp.name, filename)
             try: os.unlink(tmp.name)
             except: pass
             if AUTH_ENABLED: record_action(self.get_token(), 'transcription')
@@ -474,7 +531,7 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
             for chunk in resp.iter_content(chunk_size=8192): tmp.write(chunk)
             tmp.close()
             filename = url.split('/')[-1].split('?')[0] or 'audio.wav'
-            result   = run_groq_whisper(tmp.name, filename)
+            result   = run_transcribe(tmp.name, filename)
             try: os.unlink(tmp.name)
             except: pass
             self.send_json(result)
@@ -490,6 +547,125 @@ class AnnotoHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(result)
         except Exception as e:
             self.send_json({"error": str(e)})
+
+
+def run_assemblyai_whisper(audio_path, original_filename):
+    """Transcription via AssemblyAI with key rotation — no IP restrictions."""
+    import time
+    key = _get_next_assemblyai_key()
+    if not key:
+        return {"error": "No AssemblyAI keys available"}
+    print(f"[*] AssemblyAI transcribing: {original_filename}")
+
+    # Step 1: Upload audio file
+    try:
+        with open(audio_path, "rb") as f:
+            up = requests.post(
+                ASSEMBLYAI_UPLOAD,
+                headers={"authorization": key, "content-type": "application/octet-stream"},
+                data=f, timeout=120
+            )
+        if up.status_code != 200:
+            return {"error": f"AssemblyAI upload failed {up.status_code}: {up.text[:200]}"}
+        upload_url = up.json()["upload_url"]
+    except Exception as e:
+        return {"error": f"AssemblyAI upload error: {str(e)}"}
+
+    # Step 2: Submit transcription job
+    try:
+        sub = requests.post(
+            ASSEMBLYAI_SUBMIT,
+            headers={"authorization": key, "content-type": "application/json"},
+            json={"audio_url": upload_url, "format_text": False},
+            timeout=30
+        )
+        if sub.status_code != 200:
+            return {"error": f"AssemblyAI submit failed {sub.status_code}: {sub.text[:200]}"}
+        job_id = sub.json()["id"]
+    except Exception as e:
+        return {"error": f"AssemblyAI submit error: {str(e)}"}
+
+    # Step 3: Poll until complete (max 4 minutes)
+    poll_url = f"{ASSEMBLYAI_SUBMIT}/{job_id}"
+    data = {}
+    for _ in range(120):
+        time.sleep(2)
+        try:
+            poll = requests.get(poll_url, headers={"authorization": key}, timeout=15)
+            data = poll.json()
+            status = data.get("status")
+            if status == "completed":
+                break
+            elif status == "error":
+                return {"error": f"AssemblyAI transcription error: {data.get('error', 'unknown')}"}
+        except Exception as e:
+            return {"error": f"AssemblyAI poll error: {str(e)}"}
+    else:
+        return {"error": "AssemblyAI transcription timed out"}
+
+    # Step 4: Parse results with word-level timestamps
+    full_transcript = data.get("text", "").strip()
+    raw_words       = data.get("words", [])
+
+    def fmt(ms):
+        secs = max(0.0, float(ms) / 1000.0)
+        h = int(secs // 3600); m = int((secs % 3600) // 60); s = int(secs % 60)
+        us = int(round((secs - int(secs)) * 1_000_000))
+        return f"{h}:{m:02d}:{s:02d}.{us:06d}"
+
+    def classify(word):
+        w = word.lower().strip(".,!?()")
+        fillers = {'uh','uhh','uhhh','um','umm','ummm','ah','ahh','aah','aaah',
+                   'hmm','hm','hmmm','eh','ehh','er','erm','haan','han','oh','ohh','mm','mmm'}
+        if w in fillers: return 'LIKELY_FILLER'
+        if any('ऀ' <= c <= 'ॿ' for c in word): return 'LIKELY_DEVANAGARI'
+        if len(w) > 3 and sum(1 for c in w if c in 'aeiou') == 0: return 'LIKELY_MB'
+        safe = {'the','a','an','i','in','on','at','to','of','is','was','are','were','and','or','but'}
+        if word and word[0].isupper() and w not in safe: return 'LIKELY_PROPER_NOUN'
+        return 'NORMAL'
+
+    words = []
+    for w in raw_words:
+        word = w.get("text", "").strip()
+        if not word: continue
+        start_ms = float(w.get("start", 0))
+        end_ms   = float(w.get("end",   0))
+        words.append({"word": word, "start": fmt(start_ms), "end": fmt(end_ms),
+                      "start_seconds": round(start_ms / 1000.0, 6),
+                      "end_seconds":   round(end_ms   / 1000.0, 6),
+                      "hint": classify(word), "is_english": True})
+
+    silence_gaps = []
+    for i in range(len(words) - 1):
+        gap = words[i+1]["start_seconds"] - words[i]["end_seconds"]
+        if gap > 2.0:
+            silence_gaps.append({"after_word": words[i]["word"], "before_word": words[i+1]["word"],
+                                 "gap_seconds": round(gap, 6), "sil_start": words[i]["end"],
+                                 "sil_end": words[i+1]["start"]})
+    leading_silence = None
+    if words and words[0]["start_seconds"] > 2.0:
+        leading_silence = {"gap_seconds": round(words[0]["start_seconds"], 6),
+                           "sil_start": fmt(0), "sil_end": words[0]["start"], "type": "leading"}
+        silence_gaps.insert(0, leading_silence)
+
+    print(f"[*] AssemblyAI done! {len(words)} words")
+    return {"status": "ok", "result": {
+        "audio_file": original_filename, "full_transcript": full_transcript,
+        "words": words, "silence_gaps": silence_gaps,
+        "leading_silence": leading_silence, "sublex_pauses": [], "hint_summary": {}
+    }}
+
+
+def run_transcribe(audio_path, original_filename):
+    """Router: AssemblyAI first (no restrictions), Groq Whisper as fallback."""
+    if ASSEMBLYAI_KEYS:
+        result = run_assemblyai_whisper(audio_path, original_filename)
+        if result.get("status") == "ok":
+            return result
+        print(f"[!] AssemblyAI failed: {result.get('error')} — falling back to Groq Whisper")
+    else:
+        print("[!] No AssemblyAI keys — using Groq Whisper")
+    return run_groq_whisper(audio_path, original_filename)
 
 
 def run_groq_whisper(audio_path, original_filename):
@@ -745,13 +921,23 @@ def call_groq_annotate(payload):
         f"CRITICAL: Copy start/end timestamps EXACTLY as given in the word list. Do not round or reformat them."
     )
 
-    print(f"[*] Annotating {len(words)} words...")
+    # ── Gemini PRIMARY for annotation (saves Groq for Whisper fallback only) ──
+    if GEMINI_KEYS:
+        print(f"[*] Annotating {len(words)} words via Gemini (primary)...")
+        result = call_gemini_annotate(user_msg)
+        if result.get("status") == "ok":
+            return result
+        print(f"[!] Gemini failed: {result.get('error')} — falling back to Groq")
+    else:
+        print("[!] No Gemini keys — using Groq for annotation")
+
+    # ── Groq FALLBACK only ────────────────────────────────────────────────────
+    print(f"[*] Annotating {len(words)} words via Groq (fallback)...")
     attempted = set()
     while True:
         key = _get_next_groq_key()
         if key is None or key in attempted:
-            if GEMINI_KEY: return call_gemini_annotate(user_msg)
-            return {"error": "All Groq keys exhausted."}
+            return {"error": "All annotation services failed. Check your API keys."}
         attempted.add(key)
         try:
             resp = requests.post(
@@ -778,20 +964,31 @@ def call_groq_annotate(payload):
 
 
 def call_gemini_annotate(user_msg):
-    try:
-        resp = requests.post(
-            f"{GEMINI_URL}?key={GEMINI_KEY}",
-            headers={"Content-Type": "application/json"},
-            json={"contents": [{"parts": [{"text": SYSTEM_PROMPT + "\n\n" + user_msg}]}],
-                  "generationConfig": {"temperature": 0.0, "maxOutputTokens": 8000}},
-            timeout=180
-        )
-        if resp.status_code != 200:
-            return {"error": f"Gemini Error {resp.status_code}"}
-        raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        return parse_ai_response(raw)
-    except Exception as e:
-        return {"error": f"Gemini error: {str(e)}"}
+    """Try each Gemini key in rotation until one succeeds."""
+    if not GEMINI_KEYS:
+        return {"error": "No Gemini keys configured"}
+    for attempt in range(len(GEMINI_KEYS)):
+        key = _get_next_gemini_key()
+        try:
+            resp = requests.post(
+                f"{GEMINI_URL}?key={key}",
+                headers={"Content-Type": "application/json"},
+                json={"contents": [{"parts": [{"text": SYSTEM_PROMPT + "\n\n" + user_msg}]}],
+                      "generationConfig": {"temperature": 0.0, "maxOutputTokens": 8000}},
+                timeout=180
+            )
+            if resp.status_code == 429:
+                print(f"[!] Gemini key rate-limited — rotating to next key")
+                continue
+            if resp.status_code != 200:
+                print(f"[!] Gemini key error {resp.status_code} — rotating")
+                continue
+            raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            return parse_ai_response(raw)
+        except Exception as e:
+            print(f"[!] Gemini attempt {attempt+1} error: {str(e)} — rotating")
+            continue
+    return {"error": "All Gemini keys failed or rate-limited"}
 
 
 def _normalize_annotation(a):
@@ -907,10 +1104,11 @@ if __name__ == '__main__':
     print("=" * 55)
     print("  AnnotoAI — Full Pipeline")
     print("=" * 55)
-    print(f"  URL    : http://localhost:{PORT}")
-    print(f"  Keys   : {len(GROQ_KEYS)} Groq key(s) loaded")
-    print(f"  Whisper: Groq API (fast, online)")
-    print(f"  Auth   : {'Enabled' if AUTH_ENABLED else 'Disabled'}")
+    print(f"  URL          : http://localhost:{PORT}")
+    print(f"  Transcription: {'AssemblyAI x' + str(len(ASSEMBLYAI_KEYS)) + ' (primary)' if ASSEMBLYAI_KEYS else 'Groq Whisper only (fallback)'}")
+    print(f"  Annotation   : {'Gemini x' + str(len(GEMINI_KEYS)) + ' (primary)' if GEMINI_KEYS else 'Groq LLM only (fallback)'}")
+    print(f"  Groq keys    : {len(GROQ_KEYS)} (fallback only)")
+    print(f"  Auth         : {'Enabled' if AUTH_ENABLED else 'Disabled'}")
     print()
     print("  DO NOT CLOSE THIS WINDOW!")
     print("=" * 55)
